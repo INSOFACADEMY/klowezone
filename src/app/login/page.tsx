@@ -63,17 +63,56 @@ export default function LoginPage() {
 
       if (error) {
         console.error('Error during login:', error);
-        setErrors({ general: error.message });
+
+        // Mensajes de error más claros
+        let errorMessage = 'Error al iniciar sesión';
+        switch (error.message) {
+          case 'Invalid login credentials':
+            errorMessage = 'Email o contraseña incorrectos';
+            break;
+          case 'Email not confirmed':
+            errorMessage = 'Por favor confirma tu email antes de iniciar sesión';
+            break;
+          case 'Too many requests':
+            errorMessage = 'Demasiados intentos. Inténtalo más tarde';
+            break;
+          default:
+            errorMessage = error.message;
+        }
+
+        setErrors({ general: errorMessage });
         return;
       }
 
-      if (data.user) {
-        // Redirect to dashboard on successful login
-        router.push('/dashboard');
+      // Verificar que tenemos sesión válida antes de redirigir
+      if (data.user && data.session) {
+        try {
+          // Confirmar que la sesión está realmente activa
+          const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+
+          if (sessionError) {
+            setErrors({ general: 'Error al verificar la sesión. Inténtalo de nuevo.' });
+            return;
+          }
+
+          if (sessionData.session?.user) {
+            // Limpiar errores antes de redirigir
+            setErrors({});
+            // Redirigir solo después de confirmar sesión válida
+            router.push('/dashboard');
+          } else {
+            setErrors({ general: 'Sesión no válida. Inténtalo de nuevo.' });
+          }
+        } catch (sessionErr) {
+          console.error('Error verificando sesión:', sessionErr);
+          setErrors({ general: 'Error al establecer la sesión. Inténtalo de nuevo.' });
+        }
+      } else {
+        setErrors({ general: 'Error al iniciar sesión. Verifica tus credenciales.' });
       }
     } catch (err) {
       console.error('Unexpected error:', err);
-      setErrors({ general: 'Ocurrió un error inesperado' });
+      setErrors({ general: 'Ocurrió un error inesperado. Inténtalo de nuevo.' });
     } finally {
       setIsLoading(false);
     }
