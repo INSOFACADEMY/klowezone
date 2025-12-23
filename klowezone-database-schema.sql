@@ -4,7 +4,7 @@
 -- =====================================================
 
 -- =====================================================
--- TABLA: profiles (Perfiles de usuario)
+-- TABLA: profiles (Perfiles de usuario básicos)
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS profiles (
@@ -33,6 +33,47 @@ CREATE POLICY "Users can update own profile" ON profiles
 
 -- Política: Los usuarios pueden insertar su propio perfil durante el registro
 CREATE POLICY "Users can insert own profile" ON profiles
+    FOR INSERT WITH CHECK (auth.uid() = id);
+
+-- =====================================================
+-- TABLA: user_profiles (Perfiles de negocio extendidos)
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS user_profiles (
+    id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+    business_type TEXT NOT NULL CHECK (business_type IN ('Contabilidad', 'Diseño', 'Desarrollo de Software', 'Marketing', 'Consultoría', 'E-commerce', 'Educación', 'Salud', 'Legal', 'Construcción', 'Otro')),
+    business_name TEXT NOT NULL,
+    location TEXT NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'MXN' CHECK (currency IN ('MXN', 'USD', 'EUR', 'COP', 'PEN', 'ARS')),
+    team_size TEXT NOT NULL CHECK (team_size IN ('Solo yo', '2-5 personas', '6-20 personas', '21-50 personas', 'Más de 50 personas')),
+    primary_goals TEXT[] NOT NULL DEFAULT '{}' CHECK (
+        array_length(primary_goals, 1) >= 1 AND
+        primary_goals <@ ARRAY['Gestión de Clientes', 'Gestión de Proyectos', 'Facturación', 'Propuestas', 'Reportes', 'Colaboración', 'Automatización']
+    ),
+    onboarding_completed BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Índices para user_profiles
+CREATE INDEX IF NOT EXISTS idx_user_profiles_business_type ON user_profiles(business_type);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_location ON user_profiles(location);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_onboarding_completed ON user_profiles(onboarding_completed);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_created_at ON user_profiles(created_at DESC);
+
+-- RLS para user_profiles
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+
+-- Política: Los usuarios solo pueden ver su propio perfil de negocio
+CREATE POLICY "Users can view own business profile" ON user_profiles
+    FOR SELECT USING (auth.uid() = id);
+
+-- Política: Los usuarios solo pueden actualizar su propio perfil de negocio
+CREATE POLICY "Users can update own business profile" ON user_profiles
+    FOR UPDATE USING (auth.uid() = id);
+
+-- Política: Los usuarios pueden insertar su propio perfil de negocio
+CREATE POLICY "Users can insert own business profile" ON user_profiles
     FOR INSERT WITH CHECK (auth.uid() = id);
 
 -- =====================================================
@@ -139,6 +180,10 @@ CREATE TRIGGER update_profiles_updated_at
     BEFORE UPDATE ON profiles
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_user_profiles_updated_at
+    BEFORE UPDATE ON user_profiles
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TRIGGER update_clientes_updated_at
     BEFORE UPDATE ON clientes
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -151,6 +196,7 @@ CREATE TRIGGER update_proyectos_updated_at
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
+  -- Insertar perfil básico
   INSERT INTO public.profiles (id, nombre_completo, email, avatar_url)
   VALUES (
     NEW.id,
@@ -158,6 +204,20 @@ BEGIN
     NEW.email,
     NEW.raw_user_meta_data->>'avatar_url'
   );
+
+  -- Insertar perfil de negocio básico (será completado en onboarding)
+  INSERT INTO public.user_profiles (id, business_type, business_name, location, currency, team_size, primary_goals, onboarding_completed)
+  VALUES (
+    NEW.id,
+    'Otro', -- Valor temporal, se actualizará en onboarding
+    COALESCE(NEW.raw_user_meta_data->>'business_name', 'Mi Negocio'), -- Valor temporal
+    'México', -- Valor temporal
+    'MXN', -- Valor por defecto
+    'Solo yo', -- Valor temporal
+    ARRAY['Gestión de Clientes', 'Gestión de Proyectos'], -- Valores temporales
+    FALSE -- Onboarding no completado
+  );
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -225,7 +285,8 @@ WHERE c.user_id = auth.uid();
 -- COMENTARIOS DE DOCUMENTACIÓN
 -- =====================================================
 
-COMMENT ON TABLE profiles IS 'Perfiles de usuario extendidos con información adicional';
+COMMENT ON TABLE profiles IS 'Perfiles de usuario básicos con información personal';
+COMMENT ON TABLE user_profiles IS 'Perfiles de negocio extendidos con configuración empresarial';
 COMMENT ON TABLE clientes IS 'Tabla de clientes del sistema Klowezone';
 COMMENT ON TABLE proyectos IS 'Tabla de proyectos asociados a clientes';
 
@@ -233,6 +294,15 @@ COMMENT ON COLUMN profiles.id IS 'ID único del usuario (FK a auth.users)';
 COMMENT ON COLUMN profiles.nombre_completo IS 'Nombre completo del usuario';
 COMMENT ON COLUMN profiles.avatar_url IS 'URL del avatar del usuario';
 COMMENT ON COLUMN profiles.email IS 'Email del usuario (duplicado de auth.users)';
+
+COMMENT ON COLUMN user_profiles.id IS 'ID único del usuario (FK a auth.users)';
+COMMENT ON COLUMN user_profiles.business_type IS 'Tipo de negocio/actividad principal';
+COMMENT ON COLUMN user_profiles.business_name IS 'Nombre del negocio o empresa';
+COMMENT ON COLUMN user_profiles.location IS 'Ubicación geográfica del negocio';
+COMMENT ON COLUMN user_profiles.currency IS 'Moneda principal de operaciones';
+COMMENT ON COLUMN user_profiles.team_size IS 'Tamaño del equipo de trabajo';
+COMMENT ON COLUMN user_profiles.primary_goals IS 'Objetivos principales del negocio';
+COMMENT ON COLUMN user_profiles.onboarding_completed IS 'Indica si el usuario completó el proceso de onboarding';
 
 COMMENT ON COLUMN clientes.id IS 'ID único del cliente';
 COMMENT ON COLUMN clientes.user_id IS 'ID del usuario propietario (FK a auth.users)';
@@ -253,12 +323,116 @@ COMMENT ON COLUMN proyectos.fecha_entrega IS 'Fecha estimada de entrega';
 COMMENT ON COLUMN proyectos.presupuesto IS 'Presupuesto asignado al proyecto';
 
 -- =====================================================
--- FIN DEL SCRIPT
+-- SCRIPT ADICIONAL: USER_PROFILES (Onboarding)
+-- =====================================================
+
+-- Para agregar la funcionalidad de onboarding después de haber creado las tablas básicas,
+-- ejecuta solo esta sección:
+
+-- =====================================================
+-- TABLA: user_profiles (Perfiles de negocio extendidos)
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS user_profiles (
+    id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+    business_type TEXT NOT NULL CHECK (business_type IN ('Contabilidad', 'Diseño', 'Desarrollo de Software', 'Marketing', 'Consultoría', 'E-commerce', 'Educación', 'Salud', 'Legal', 'Construcción', 'Otro')),
+    business_name TEXT NOT NULL,
+    location TEXT NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'MXN' CHECK (currency IN ('MXN', 'USD', 'EUR', 'COP', 'PEN', 'ARS')),
+    team_size TEXT NOT NULL CHECK (team_size IN ('Solo yo', '2-5 personas', '6-20 personas', '21-50 personas', 'Más de 50 personas')),
+    primary_goals TEXT[] NOT NULL DEFAULT '{}' CHECK (
+        array_length(primary_goals, 1) >= 1 AND
+        primary_goals <@ ARRAY['Gestión de Clientes', 'Gestión de Proyectos', 'Facturación', 'Propuestas', 'Reportes', 'Colaboración', 'Automatización']
+    ),
+    onboarding_completed BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Índices para user_profiles
+CREATE INDEX IF NOT EXISTS idx_user_profiles_business_type ON user_profiles(business_type);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_location ON user_profiles(location);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_onboarding_completed ON user_profiles(onboarding_completed);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_created_at ON user_profiles(created_at DESC);
+
+-- RLS para user_profiles
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+
+-- Política: Los usuarios solo pueden ver su propio perfil de negocio
+CREATE POLICY "Users can view own business profile" ON user_profiles
+    FOR SELECT USING (auth.uid() = id);
+
+-- Política: Los usuarios solo pueden actualizar su propio perfil de negocio
+CREATE POLICY "Users can update own business profile" ON user_profiles
+    FOR UPDATE USING (auth.uid() = id);
+
+-- Política: Los usuarios pueden insertar su propio perfil de negocio
+CREATE POLICY "Users can insert own business profile" ON user_profiles
+    FOR INSERT WITH CHECK (auth.uid() = id);
+
+-- Actualizar trigger para incluir user_profiles
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Insertar perfil básico
+  INSERT INTO public.profiles (id, nombre_completo, email, avatar_url)
+  VALUES (
+    NEW.id,
+    NEW.raw_user_meta_data->>'full_name',
+    NEW.email,
+    NEW.raw_user_meta_data->>'avatar_url'
+  );
+
+  -- Insertar perfil de negocio básico (será completado en onboarding)
+  INSERT INTO public.user_profiles (id, business_type, business_name, location, currency, team_size, primary_goals, onboarding_completed)
+  VALUES (
+    NEW.id,
+    'Otro', -- Valor temporal, se actualizará en onboarding
+    COALESCE(NEW.raw_user_meta_data->>'business_name', 'Mi Negocio'), -- Valor temporal
+    'México', -- Valor temporal
+    'MXN', -- Valor por defecto
+    'Solo yo', -- Valor temporal
+    ARRAY['Gestión de Clientes', 'Gestión de Proyectos'], -- Valores temporales
+    FALSE -- Onboarding no completado
+  );
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Agregar trigger para user_profiles
+CREATE TRIGGER update_user_profiles_updated_at
+    BEFORE UPDATE ON user_profiles
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Actualizar comentarios
+COMMENT ON TABLE user_profiles IS 'Perfiles de negocio extendidos con configuración empresarial';
+COMMENT ON COLUMN user_profiles.id IS 'ID único del usuario (FK a auth.users)';
+COMMENT ON COLUMN user_profiles.business_type IS 'Tipo de negocio/actividad principal';
+COMMENT ON COLUMN user_profiles.business_name IS 'Nombre del negocio o empresa';
+COMMENT ON COLUMN user_profiles.location IS 'Ubicación geográfica del negocio';
+COMMENT ON COLUMN user_profiles.currency IS 'Moneda principal de operaciones';
+COMMENT ON COLUMN user_profiles.team_size IS 'Tamaño del equipo de trabajo';
+COMMENT ON COLUMN user_profiles.primary_goals IS 'Objetivos principales del negocio';
+COMMENT ON COLUMN user_profiles.onboarding_completed IS 'Indica si el usuario completo el proceso de onboarding';
+
+-- =====================================================
+-- FIN DEL SCRIPT ADICIONAL
+-- =====================================================
+
+-- =====================================================
+-- FIN DEL SCRIPT COMPLETO
 -- =====================================================
 
 -- Instrucciones de uso:
--- 1. Copia todo este script
--- 2. Ve a Supabase Dashboard > SQL Editor
--- 3. Pega el script y ejecuta
--- 4. Verifica que las tablas se crearon correctamente
--- 5. Las políticas RLS protegerán automáticamente los datos de cada usuario
+-- 1. Si ya tienes las tablas básicas creadas, ejecuta solo la sección "SCRIPT ADICIONAL: USER_PROFILES"
+-- 2. Si es tu primera vez, ejecuta el script completo desde el inicio
+-- 3. Ve a Supabase Dashboard > SQL Editor
+-- 4. Pega el script y ejecuta
+-- 5. Verifica que las tablas se crearon correctamente
+-- 6. Las políticas RLS protegerán automáticamente los datos de cada usuario
+--
+-- Próximos pasos después de ejecutar el SQL:
+-- 1. El onboarding se activará automáticamente para nuevos usuarios
+-- 2. Los usuarios existentes pueden acceder directamente al dashboard (onboarding opcional)
+-- 3. Prueba el flujo completo: registro -> onboarding -> dashboard

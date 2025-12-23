@@ -15,19 +15,26 @@ export interface Client {
 // Obtener todos los clientes del usuario actual
 export async function getClients() {
   try {
+    console.log('📋 Consultando clientes...');
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log('👤 Usuario actual:', user?.id);
+
     const { data, error } = await supabase
       .from('clientes')
       .select('*')
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('Error fetching clients:', error)
+      console.error('❌ Error RLS/Consulta en clientes:', error);
+      console.error('Código de error:', error.code);
+      console.error('Mensaje:', error.message);
       throw error
     }
 
+    console.log('✅ Clientes obtenidos:', data?.length || 0);
     return data as Client[]
   } catch (error) {
-    console.error('Error in getClients:', error)
+    console.error('❌ Error en getClients:', error)
     throw error
   }
 }
@@ -209,6 +216,54 @@ export async function insertTestClients() {
     return data as Client[]
   } catch (error) {
     console.error('Error in insertTestClients:', error)
+    throw error
+  }
+}
+
+// Obtener un cliente específico por ID
+export async function getClientById(id: string): Promise<Client | null> {
+  try {
+    const { data, error } = await supabase
+      .from('clientes')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+      .single()
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No se encontró el cliente
+        return null
+      }
+      console.error('Error fetching client:', error)
+      throw error
+    }
+
+    return data as Client
+  } catch (error) {
+    console.error('Error in getClientById:', error)
+    throw error
+  }
+}
+
+// Obtener proyectos de un cliente específico
+export async function getClientProjects(clientId: string) {
+  try {
+    const { data, error } = await supabase
+      .from('proyectos')
+      .select('*')
+      .eq('cliente_id', clientId)
+      .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching client projects:', error)
+      throw error
+    }
+
+    return data || []
+  } catch (error) {
+    console.error('Error in getClientProjects:', error)
     throw error
   }
 }

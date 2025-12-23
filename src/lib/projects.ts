@@ -19,6 +19,10 @@ export interface Project {
 // Obtener todos los proyectos del usuario actual, incluyendo el nombre del cliente
 export async function getProjects(): Promise<Project[]> {
   try {
+    console.log('📊 Consultando proyectos...');
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log('👤 Usuario para proyectos:', user?.id);
+
     const { data, error } = await supabase
       .from('proyectos')
       .select(`
@@ -27,11 +31,13 @@ export async function getProjects(): Promise<Project[]> {
           nombre
         )
       `)
-      .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+      .eq('user_id', user?.id)
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('Error fetching projects:', error)
+      console.error('❌ Error RLS/Consulta en proyectos:', error);
+      console.error('Código de error:', error.code);
+      console.error('Mensaje:', error.message);
       throw error
     }
 
@@ -41,9 +47,10 @@ export async function getProjects(): Promise<Project[]> {
       cliente_nombre: project.clientes?.nombre || 'Cliente no encontrado'
     })) || []
 
+    console.log('✅ Proyectos obtenidos:', projectsWithClientName.length);
     return projectsWithClientName as Project[]
   } catch (error) {
-    console.error('Error in getProjects:', error)
+    console.error('❌ Error en getProjects:', error)
     throw error
   }
 }
