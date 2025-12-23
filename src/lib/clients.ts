@@ -15,23 +15,16 @@ export interface Client {
 // Obtener todos los clientes del usuario actual
 export async function getClients() {
   try {
-    console.log('📋 Consultando clientes...');
-    const { data: { user } } = await supabase.auth.getUser();
-    console.log('👤 Usuario actual:', user?.id);
-
     const { data, error } = await supabase
       .from('clientes')
       .select('*')
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('❌ Error RLS/Consulta en clientes:', error);
-      console.error('Código de error:', error.code);
-      console.error('Mensaje:', error.message);
+      console.error('Error fetching clients:', error)
       throw error
     }
 
-    console.log('✅ Clientes obtenidos:', data?.length || 0);
     return data as Client[]
   } catch (error) {
     console.error('❌ Error en getClients:', error)

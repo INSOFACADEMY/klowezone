@@ -195,17 +195,14 @@ export default function OnboardingPage() {
         onboarding_completed: true
       };
 
-      console.log('Guardando perfil de negocio:', profileData);
       const success = await createUserProfile(profileData);
 
       if (success) {
-        console.log('Perfil guardado exitosamente, redirigiendo al dashboard...');
-        // Pequeño delay para asegurar que los datos se propaguen
+        // Pequeño delay para asegurar que los datos se propaguen completamente
         setTimeout(() => {
           router.push('/dashboard');
         }, 500);
       } else {
-        console.error('Error al guardar el perfil');
         setErrors({ general: 'Error al guardar la configuración. Inténtalo de nuevo.' });
       }
     } catch (error) {

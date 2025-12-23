@@ -70,10 +70,7 @@ export default function DashboardPage() {
 
   // Load data function with useCallback
   const loadData = useCallback(async () => {
-    console.log('🔄 Iniciando carga de datos del dashboard...');
     try {
-      console.log('📡 Ejecutando consultas paralelas...');
-
       const [clientsData, projectsData, clientStatsData, projectStatsData] = await Promise.all([
         getClients(),
         getProjects(),
@@ -81,88 +78,54 @@ export default function DashboardPage() {
         getProjectStats()
       ]);
 
-      console.log('✅ Datos cargados exitosamente:', {
-        clients: clientsData?.length || 0,
-        projects: projectsData?.length || 0,
-        clientStats: clientStatsData,
-        projectStats: projectStatsData
-      });
-
       setClients(clientsData || []);
       setFilteredClients(clientsData || []);
       setProjects(projectsData || []);
       setClientStats(clientStatsData || { total: 0, activos: 0, nuevosEsteMes: 0 });
       setProjectStats(projectStatsData || { total: 0, completados: 0, enProgreso: 0, planificacion: 0 });
-
-      console.log('🎯 Estado actualizado correctamente');
-      setLoading(false); // Asegurar que loading termine
+      setLoading(false);
     } catch (error) {
-      console.error('❌ Error loading data:', error);
-      console.error('Detalles del error:', error);
+      console.error('Error loading dashboard data:', error);
 
-      // Resetear estado en caso de error para evitar bucles
+      // Resetear estado en caso de error
       setClients([]);
       setFilteredClients([]);
       setProjects([]);
       setClientStats({ total: 0, activos: 0, nuevosEsteMes: 0 });
       setProjectStats({ total: 0, completados: 0, enProgreso: 0, planificacion: 0 });
-      setLoading(false); // Importante: terminar el estado de carga
-
-      // Mostrar error al usuario pero no bloquear la UI
-      console.error('No se pudieron cargar los datos. Revisa la conexión a Supabase.');
+      setLoading(false);
     }
   }, []);
 
   // Check authentication and onboarding
   useEffect(() => {
     const checkAuthAndOnboarding = async () => {
-      console.log('🔐 Iniciando verificación de autenticación y onboarding...');
-
       try {
-        console.log('👤 Verificando usuario autenticado...');
         const { data: { user }, error } = await supabase.auth.getUser();
 
-        if (error) {
-          console.error('❌ Error de autenticación:', error);
+        if (error || !user) {
           router.push('/login');
           return;
         }
 
-        if (!user) {
-          console.log('⚠️ No hay usuario autenticado, redirigiendo a login');
-          router.push('/login');
-          return;
-        }
-
-        console.log('✅ Usuario autenticado:', user.id);
         setUser(user);
 
-        // Pequeño delay para permitir que los datos del onboarding se propaguen
-        console.log('⏳ Esperando propagación de datos del onboarding (1s)...');
+        // Delay estratégico: permite que los datos del onboarding se propaguen completamente
+        // en Supabase antes de verificar el estado. Evita bucles entre dashboard y onboarding.
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Check if onboarding is completed
-        console.log('📋 Verificando estado del onboarding...');
         const profile = await getUserProfile();
 
-        console.log('Perfil obtenido:', {
-          exists: !!profile,
-          onboarding_completed: profile?.onboarding_completed,
-          business_name: profile?.business_name
-        });
-
         if (!profile?.onboarding_completed) {
-          console.log('⚠️ Onboarding no completado, redirigiendo...');
           router.push('/onboarding');
           return;
         }
 
-        console.log('✅ Onboarding completado, cargando dashboard...');
         setUserProfile(profile);
         setAuthLoading(false);
       } catch (error) {
-        console.error('❌ Error en verificación de auth:', error);
-        console.error('Detalles del error:', error);
+        console.error('Error checking authentication:', error);
         // En caso de error, asegurar que no se quede en loading infinito
         setAuthLoading(false);
         router.push('/login');
@@ -174,7 +137,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (user && !authLoading) {
-      console.log('🚀 Ejecutando carga inicial de datos...');
       loadData();
     }
   }, [user, authLoading]); // Solo ejecutar cuando el usuario esté autenticado y la verificación haya terminado
@@ -228,8 +190,6 @@ export default function DashboardPage() {
   const handleCreateClient = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
 
-    console.log('🏗️ Iniciando creación de cliente...');
-
     // Validaciones robustas - NO permitir valores null o vacíos
     const validationErrors: Record<string, string> = {};
 
@@ -247,7 +207,6 @@ export default function DashboardPage() {
     }
 
     if (Object.keys(validationErrors).length > 0) {
-      console.log('❌ Errores de validación:', validationErrors);
       setErrors(validationErrors);
       return; // NO enviar a Supabase, mantener modal abierto
     }
@@ -265,9 +224,7 @@ export default function DashboardPage() {
         notas: newClient.notas?.trim() && newClient.notas.trim().length > 0 ? newClient.notas.trim() : undefined
       };
 
-      console.log('📤 Enviando datos a Supabase:', clientData);
       await createClient(clientData);
-      console.log('✅ Cliente creado exitosamente');
 
       setNewClient({
         nombre: '',
@@ -277,11 +234,9 @@ export default function DashboardPage() {
         notas: ''
       });
       setIsModalOpen(false);
-      console.log('🔄 Recargando datos...');
       await loadData(); // Reload data
     } catch (error) {
-      console.error('❌ Error creating client:', error);
-      console.error('Detalles del error:', error);
+      console.error('Error creating client:', error);
       setErrors({ general: 'Error al crear el cliente. Verifica tu conexión e inténtalo de nuevo.' });
     } finally {
       setIsSubmitting(false);
@@ -356,13 +311,14 @@ export default function DashboardPage() {
     }
   }, [loadData]);
 
-  // Timeout de respaldo por si la autenticación se queda colgada
+  // Timeout de respaldo: previene bucles infinitos si la autenticación falla
+  // Forzando fin del estado de carga después de 10 segundos máximo
   useEffect(() => {
     if (authLoading) {
       const timeout = setTimeout(() => {
-        console.log('⏰ Timeout de respaldo activado - forzando fin de loading');
+        console.error('Authentication timeout - forcing loading state to end');
         setAuthLoading(false);
-      }, 10000); // 10 segundos máximo
+      }, 10000);
 
       return () => clearTimeout(timeout);
     }
@@ -403,12 +359,70 @@ export default function DashboardPage() {
 
           <nav className="flex-1 space-y-2">
             <div className="text-slate-400 text-sm font-medium mb-4">NAVEGACIÓN</div>
+
+            {/* Dashboard */}
             <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
               <div className="flex items-center text-emerald-400">
                 <BarChart3 className="w-5 h-5 mr-3" />
                 <span className="font-medium">Dashboard</span>
               </div>
             </div>
+
+            {/* Proyectos */}
+            <button
+              onClick={() => router.push('/dashboard/projects')}
+              className="w-full text-left bg-slate-800/30 hover:bg-slate-800/50 rounded-lg p-3 border border-slate-700/30 transition-colors group"
+            >
+              <div className="flex items-center text-slate-200 group-hover:text-white">
+                <Briefcase className="w-5 h-5 mr-3" />
+                <span className="font-medium">Proyectos</span>
+              </div>
+              <div className="text-xs text-slate-500 mt-1 ml-8">
+                Kanban, Equipos, Gantt
+              </div>
+            </button>
+
+            {/* IA Assistant */}
+            <button
+              onClick={() => router.push('/dashboard/ai')}
+              className="w-full text-left bg-slate-800/30 hover:bg-slate-800/50 rounded-lg p-3 border border-slate-700/30 transition-colors group"
+            >
+              <div className="flex items-center text-slate-200 group-hover:text-white">
+                <Sparkles className="w-5 h-5 mr-3" />
+                <span className="font-medium">IA Assistant</span>
+              </div>
+              <div className="text-xs text-slate-500 mt-1 ml-8">
+                Auto-cronograma, Reportes
+              </div>
+            </button>
+
+            {/* Finanzas */}
+            <button
+              onClick={() => router.push('/dashboard/finances')}
+              className="w-full text-left bg-slate-800/30 hover:bg-slate-800/50 rounded-lg p-3 border border-slate-700/30 transition-colors group"
+            >
+              <div className="flex items-center text-slate-200 group-hover:text-white">
+                <DollarSign className="w-5 h-5 mr-3" />
+                <span className="font-medium">Finanzas</span>
+              </div>
+              <div className="text-xs text-slate-500 mt-1 ml-8">
+                Métricas, Gastos, Facturación
+              </div>
+            </button>
+
+            {/* Clientes */}
+            <button
+              onClick={() => router.push('/dashboard/clients')}
+              className="w-full text-left bg-slate-800/30 hover:bg-slate-800/50 rounded-lg p-3 border border-slate-700/30 transition-colors group"
+            >
+              <div className="flex items-center text-slate-200 group-hover:text-white">
+                <Users className="w-5 h-5 mr-3" />
+                <span className="font-medium">Clientes</span>
+              </div>
+              <div className="text-xs text-slate-500 mt-1 ml-8">
+                Gestión, Historial
+              </div>
+            </button>
           </nav>
 
           <div className="border-t border-slate-700/50 pt-4">
@@ -494,7 +508,7 @@ export default function DashboardPage() {
               </DialogTrigger>
             </Dialog>
 
-            <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-800">
+            <Button variant="outline" className="border-slate-600 text-slate-200 hover:bg-slate-800">
               <Receipt className="w-4 h-4 mr-2" />
               Crear Factura
             </Button>
@@ -503,7 +517,7 @@ export default function DashboardPage() {
               onClick={handleInsertTestData}
               disabled={isInsertingTestData}
               variant="outline"
-              className="border-slate-600 text-slate-300 hover:bg-slate-800"
+              className="border-slate-600 text-slate-200 hover:bg-slate-800"
             >
               {isInsertingTestData ? (
                 <div className="flex items-center">
@@ -804,43 +818,43 @@ export default function DashboardPage() {
           </DialogHeader>
           <form onSubmit={handleCreateClient} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="nombre" className="text-slate-300">Nombre *</Label>
+              <Label htmlFor="nombre" className="text-slate-200">Nombre *</Label>
               <Input
                 id="nombre"
                 value={newClient.nombre}
                 onChange={(e) => setNewClient(prev => ({ ...prev, nombre: e.target.value }))}
-                className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-500"
+                className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400"
                 placeholder="Nombre del cliente"
               />
               {errors.nombre && <p className="text-sm text-red-400 flex items-center"><AlertCircle className="w-4 h-4 mr-1" />{errors.nombre}</p>}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-slate-300">Email *</Label>
+              <Label htmlFor="email" className="text-slate-200">Email *</Label>
               <Input
                 id="email"
                 type="email"
                 value={newClient.email}
                 onChange={(e) => setNewClient(prev => ({ ...prev, email: e.target.value }))}
-                className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-500"
+                className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400"
                 placeholder="cliente@email.com"
               />
               {errors.email && <p className="text-sm text-red-400 flex items-center"><AlertCircle className="w-4 h-4 mr-1" />{errors.email}</p>}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="telefono" className="text-slate-300">Teléfono</Label>
+              <Label htmlFor="telefono" className="text-slate-200">Teléfono</Label>
               <Input
                 id="telefono"
                 value={newClient.telefono}
                 onChange={(e) => setNewClient(prev => ({ ...prev, telefono: e.target.value }))}
-                className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-500"
+                className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400"
                 placeholder="+1234567890"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="estado" className="text-slate-300">Estado</Label>
+              <Label htmlFor="estado" className="text-slate-200">Estado</Label>
               <Select value={newClient.estado} onValueChange={(value: any) => setNewClient(prev => ({ ...prev, estado: value }))}>
                 <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
                   <SelectValue />
@@ -864,7 +878,7 @@ export default function DashboardPage() {
                 type="button"
                 variant="outline"
                 onClick={() => setIsModalOpen(false)}
-                className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800"
+                className="flex-1 border-slate-600 text-slate-200 hover:bg-slate-800"
               >
                 Cancelar
               </Button>
@@ -891,7 +905,7 @@ export default function DashboardPage() {
           </DialogHeader>
           <form onSubmit={handleCreateProject} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="cliente_id" className="text-slate-300">Cliente *</Label>
+              <Label htmlFor="cliente_id" className="text-slate-200">Cliente *</Label>
               <Select value={newProject.cliente_id} onValueChange={(value) => setNewProject(prev => ({ ...prev, cliente_id: value }))}>
                 <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
                   <SelectValue placeholder="Selecciona un cliente" />
@@ -908,12 +922,12 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="project_name" className="text-slate-300">Nombre del Proyecto *</Label>
+              <Label htmlFor="project_name" className="text-slate-200">Nombre del Proyecto *</Label>
               <Input
                 id="project_name"
                 value={newProject.nombre_proyecto}
                 onChange={(e) => setNewProject(prev => ({ ...prev, nombre_proyecto: e.target.value }))}
-                className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-500"
+                className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400"
                 placeholder="Nombre del proyecto"
               />
               {errors.nombre_proyecto && <p className="text-sm text-red-400 flex items-center"><AlertCircle className="w-4 h-4 mr-1" />{errors.nombre_proyecto}</p>}
@@ -921,7 +935,7 @@ export default function DashboardPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="prioridad" className="text-slate-300">Prioridad</Label>
+                <Label htmlFor="prioridad" className="text-slate-200">Prioridad</Label>
                 <Select value={newProject.prioridad} onValueChange={(value: any) => setNewProject(prev => ({ ...prev, prioridad: value }))}>
                   <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
                     <SelectValue />
@@ -936,7 +950,7 @@ export default function DashboardPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="estado" className="text-slate-300">Estado</Label>
+                <Label htmlFor="estado" className="text-slate-200">Estado</Label>
                 <Select value={newProject.estado} onValueChange={(value: any) => setNewProject(prev => ({ ...prev, estado: value }))}>
                   <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
                     <SelectValue />
@@ -953,7 +967,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="fecha_entrega" className="text-slate-300">Fecha de Entrega</Label>
+              <Label htmlFor="fecha_entrega" className="text-slate-200">Fecha de Entrega</Label>
               <Input
                 id="fecha_entrega"
                 type="date"
@@ -974,7 +988,7 @@ export default function DashboardPage() {
                 type="button"
                 variant="outline"
                 onClick={() => setIsProjectModalOpen(false)}
-                className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800"
+                className="flex-1 border-slate-600 text-slate-200 hover:bg-slate-800"
               >
                 Cancelar
               </Button>

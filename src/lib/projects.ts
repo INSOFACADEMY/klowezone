@@ -19,9 +19,7 @@ export interface Project {
 // Obtener todos los proyectos del usuario actual, incluyendo el nombre del cliente
 export async function getProjects(): Promise<Project[]> {
   try {
-    console.log('📊 Consultando proyectos...');
     const { data: { user } } = await supabase.auth.getUser();
-    console.log('👤 Usuario para proyectos:', user?.id);
 
     const { data, error } = await supabase
       .from('proyectos')
@@ -35,9 +33,7 @@ export async function getProjects(): Promise<Project[]> {
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('❌ Error RLS/Consulta en proyectos:', error);
-      console.error('Código de error:', error.code);
-      console.error('Mensaje:', error.message);
+      console.error('Error fetching projects:', error)
       throw error
     }
 
@@ -47,10 +43,9 @@ export async function getProjects(): Promise<Project[]> {
       cliente_nombre: project.clientes?.nombre || 'Cliente no encontrado'
     })) || []
 
-    console.log('✅ Proyectos obtenidos:', projectsWithClientName.length);
     return projectsWithClientName as Project[]
   } catch (error) {
-    console.error('❌ Error en getProjects:', error)
+    console.error('Error in getProjects:', error)
     throw error
   }
 }
@@ -244,5 +239,42 @@ export async function searchProjects(query: string): Promise<Project[]> {
   } catch (error) {
     console.error('Error in searchProjects:', error)
     throw error
+  }
+}
+
+// Obtener un proyecto específico por ID
+export async function getProjectById(projectId: string): Promise<Project | null> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { data, error } = await supabase
+      .from('proyectos')
+      .select(`
+        *,
+        clientes:cliente_id (
+          nombre
+        )
+      `)
+      .eq('id', projectId)
+      .eq('user_id', user?.id)
+      .single()
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null // Proyecto no encontrado
+      }
+      console.error('Error fetching project:', error)
+      throw error
+    }
+
+    const projectWithClientName = {
+      ...data,
+      cliente_nombre: data.clientes?.nombre || 'Cliente no encontrado'
+    }
+
+    return projectWithClientName as Project
+  } catch (error) {
+    console.error('Error in getProjectById:', error)
+    return null
   }
 }

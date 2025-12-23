@@ -15,15 +15,11 @@ export interface UserProfile {
 
 export async function getUserProfile(): Promise<UserProfile | null> {
   try {
-    console.log('👤 Consultando perfil de usuario...');
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      console.log('⚠️ No hay usuario autenticado');
       throw new Error('No authenticated user');
     }
-
-    console.log('🔍 Buscando perfil para usuario:', user.id);
 
     const { data, error } = await supabase
       .from('user_profiles')
@@ -33,21 +29,15 @@ export async function getUserProfile(): Promise<UserProfile | null> {
 
     if (error) {
       if (error.code === 'PGRST116') {
-        console.log('ℹ️ No se encontró perfil de usuario (normal para nuevos usuarios)');
         return null;
       }
-      console.error('❌ Error RLS/Consulta en user_profiles:', error);
-      console.error('Código:', error.code);
+      console.error('Error fetching user profile:', error);
       throw error;
     }
 
-    console.log('✅ Perfil encontrado:', {
-      business_name: data.business_name,
-      onboarding_completed: data.onboarding_completed
-    });
     return data;
   } catch (error) {
-    console.error('❌ Error en getUserProfile:', error);
+    console.error('Error in getUserProfile:', error);
     return null;
   }
 }
@@ -56,9 +46,6 @@ export async function createUserProfile(profile: Omit<UserProfile, 'id' | 'creat
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('No authenticated user');
-
-    console.log('Creando perfil de usuario para:', user.id);
-    console.log('Datos del perfil:', profile);
 
     const { data, error } = await supabase
       .from('user_profiles')
@@ -70,14 +57,13 @@ export async function createUserProfile(profile: Omit<UserProfile, 'id' | 'creat
       .single();
 
     if (error) {
-      console.error('Error en upsert:', error);
+      console.error('Error creating user profile:', error);
       throw error;
     }
 
-    console.log('Perfil creado exitosamente:', data);
     return data;
   } catch (error) {
-    console.error('Error creating user profile:', error);
+    console.error('Error in createUserProfile:', error);
     return null;
   }
 }
