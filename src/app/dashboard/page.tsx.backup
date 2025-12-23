@@ -1,0 +1,805 @@
+'use client'
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { supabase } from "@/lib/supabase";
+import { getClients, createClient, getClientStats, insertTestClients, Client } from "@/lib/clients";
+import {
+  BarChart3,
+  Users,
+  Zap,
+  Settings,
+  LogOut,
+  Sparkles,
+  TrendingUp,
+  Target,
+  Calendar,
+  CheckCircle,
+  Home,
+  FolderOpen,
+  User,
+  Menu,
+  X,
+  Search,
+  Plus,
+  Edit,
+  Trash2,
+  AlertCircle,
+  Check
+} from "lucide-react";
+
+export default function DashboardPage() {
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
+  const [clientStats, setClientStats] = useState({ total: 0, activos: 0, nuevosEsteMes: 0 });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isInsertingTestData, setIsInsertingTestData] = useState(false);
+  const [newClient, setNewClient] = useState({
+    nombre: '',
+    email: '',
+    telefono: '',
+    estado: 'Activo' as const,
+    notas: ''
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+      setUser(user);
+      setLoading(false);
+    };
+
+    getUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        router.push('/login');
+      } else {
+        setUser(session.user);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [router]);
+
+  // Load clients on component mount
+  useEffect(() => {
+    if (user) {
+      loadClients();
+    }
+  }, [user]);
+
+  // Filter clients based on search query
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredClients(clients);
+    } else {
+      const filtered = clients.filter(client =>
+        client.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (client.email && client.email.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+      setFilteredClients(filtered);
+    }
+  }, [clients, searchQuery]);
+
+  const loadClients = async () => {
+    try {
+      const [clientsData, statsData] = await Promise.all([
+        getClients(),
+        getClientStats()
+      ]);
+      setClients(clientsData);
+      setFilteredClients(clientsData);
+      setClientStats(statsData);
+    } catch (error) {
+      console.error('Error loading clients:', error);
+    }
+  };
+
+  const handleInsertTestData = async () => {
+    setIsInsertingTestData(true);
+    try {
+      await insertTestClients();
+      await loadClients(); // Recargar datos después de insertar
+    } catch (error) {
+      console.error('Error inserting test data:', error);
+    } finally {
+      setIsInsertingTestData(false);
+    }
+  };
+
+  const handleCreateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setErrors({});
+
+    // Validation
+    const newErrors: Record<string, string> = {};
+    if (!newClient.nombre.trim()) {
+      newErrors.nombre = 'El nombre es requerido';
+    }
+    if (!newClient.email?.trim()) {
+      newErrors.email = 'El email es requerido';
+    } else if (!/\S+@\S+\.\S+/.test(newClient.email)) {
+      newErrors.email = 'Email inválido';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      await createClient(newClient);
+      setIsModalOpen(false);
+      setNewClient({
+        nombre: '',
+        email: '',
+        telefono: '',
+        estado: 'Activo',
+        notas: ''
+      });
+      await loadClients(); // Refresh the clients list
+    } catch (error) {
+      console.error('Error creating client:', error);
+      setErrors({ general: 'Error al crear el cliente' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/');
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-400">Cargando dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const stats = [
+    {
+      title: "Total Clientes",
+      value: clientStats.total.toString(),
+      icon: Users,
+      color: "from-blue-500 to-cyan-500"
+    },
+    {
+      title: "Clientes Activos",
+      value: clientStats.activos.toString(),
+      icon: Target,
+      color: "from-emerald-500 to-teal-500"
+    },
+    {
+      title: "Nuevos Este Mes",
+      value: clientStats.nuevosEsteMes.toString(),
+      icon: TrendingUp,
+      color: "from-green-500 to-emerald-500"
+    },
+    {
+      title: "Proyectos",
+      value: "0",
+      icon: BarChart3,
+      color: "from-purple-500 to-pink-500"
+    }
+  ];
+
+  const sidebarItems = [
+    {
+      name: "Dashboard",
+      icon: Home,
+      href: "/dashboard",
+      current: true
+    },
+    {
+      name: "Proyectos",
+      icon: FolderOpen,
+      href: "/projects",
+      current: false
+    },
+    {
+      name: "Clientes",
+      icon: Users,
+      href: "/clients",
+      current: false
+    },
+    {
+      name: "Reportes",
+      icon: TrendingUp,
+      href: "/reports",
+      current: false
+    },
+    {
+      name: "Configuración",
+      icon: Settings,
+      href: "/settings",
+      current: false
+    }
+  ];
+
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+      case 'pending':
+        return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20';
+      case 'inactive':
+        return 'bg-red-500/10 text-red-400 border-red-500/20';
+      default:
+        return 'bg-slate-500/10 text-slate-400 border-slate-500/20';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'Activo';
+      case 'pending':
+        return 'Pendiente';
+      case 'inactive':
+        return 'Inactivo';
+      default:
+        return status;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 flex">
+      {/* Sidebar */}
+      <motion.div
+        initial={{ x: -300 }}
+        animate={{ x: 0 }}
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900/95 backdrop-blur-xl border-r border-slate-800/50 transform ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        } lg:translate-x-0 lg:static lg:inset-0 transition-transform duration-300 ease-in-out`}
+      >
+        <div className="flex flex-col h-full">
+          {/* Logo */}
+          <div className="flex items-center justify-center h-16 px-4 border-b border-slate-800/50">
+            <motion.div
+              className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent"
+              whileHover={{ scale: 1.05 }}
+            >
+              Klowezone
+            </motion.div>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 px-4 py-6 space-y-2">
+            {sidebarItems.map((item) => (
+              <motion.button
+                key={item.name}
+                whileHover={{ x: 4 }}
+                onClick={() => {
+                  router.push(item.href);
+                  setSidebarOpen(false);
+                }}
+                className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
+                  item.current
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
+              >
+                <item.icon className="w-5 h-5 mr-3" />
+                {item.name}
+              </motion.button>
+            ))}
+          </nav>
+
+          {/* User Section */}
+          <div className="p-4 border-t border-slate-800/50">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full flex items-center justify-center">
+                <User className="w-4 h-4 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate">
+                  {user?.user_metadata?.full_name || 'Usuario'}
+                </p>
+                <p className="text-xs text-slate-400 truncate">
+                  {user?.email}
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={handleLogout}
+              variant="ghost"
+              size="sm"
+              className="w-full text-slate-400 hover:text-white hover:bg-slate-800"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Cerrar sesión
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Overlay for mobile */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Main Content */}
+      <div className="flex-1 lg:ml-0">
+        {/* Top Bar */}
+        <motion.header
+          initial={{ y: -100 }}
+          animate={{ y: 0 }}
+          className="bg-slate-900/80 backdrop-blur-lg border-b border-slate-800/50 sticky top-0 z-40"
+        >
+          <div className="flex items-center justify-between px-4 py-4">
+            <div className="flex items-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="lg:hidden text-slate-400 hover:text-white mr-4"
+              >
+                <Menu className="w-5 h-5" />
+              </Button>
+              <div>
+                <h1 className="text-xl font-semibold text-white">Dashboard</h1>
+                <p className="text-sm text-slate-400">Bienvenido de vuelta</p>
+              </div>
+            </div>
+            <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+              <Sparkles className="w-4 h-4 mr-2" />
+              Plan Gratuito
+            </Badge>
+          </div>
+        </motion.header>
+
+        {/* Main Content */}
+        <main className="p-6 lg:p-8">
+          {/* Welcome Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-8"
+          >
+            <h1 className="text-3xl font-bold text-white mb-2">
+              ¡Bienvenido a Klowezone!
+            </h1>
+            <p className="text-slate-400">
+              Hola {user?.user_metadata?.full_name || user?.email}, aquí tienes un resumen de tu actividad.
+            </p>
+          </motion.div>
+
+        {/* Stats Grid */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
+        >
+          {stats.map((stat, index) => (
+            <motion.div
+              key={stat.title}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 * index }}
+            >
+              <Card className="bg-slate-900/60 backdrop-blur-lg border-slate-700/50">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-400 mb-1">
+                        {stat.title}
+                      </p>
+                      <p className="text-3xl font-bold text-white">
+                        {stat.value}
+                      </p>
+                    </div>
+                    <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${stat.color} flex items-center justify-center`}>
+                      <stat.icon className="w-6 h-6 text-white" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </motion.div>
+
+        {/* Clients Management Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="mb-8"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-semibold text-white mb-2">
+                Gestión de Clientes
+              </h2>
+              <p className="text-slate-400">
+                Administra tus clientes y proyectos de manera eficiente
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Añadir Cliente
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-slate-900/95 backdrop-blur-xl border-slate-700/50 max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl text-white">Añadir Nuevo Cliente</DialogTitle>
+                    <DialogDescription className="text-slate-400">
+                      Completa la información del cliente
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleCreateClient} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="nombre" className="text-slate-300">Nombre *</Label>
+                      <Input
+                        id="nombre"
+                        value={newClient.nombre}
+                        onChange={(e) => setNewClient(prev => ({ ...prev, nombre: e.target.value }))}
+                        className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-500"
+                        placeholder="Nombre del cliente"
+                      />
+                      {errors.nombre && <p className="text-sm text-red-400 flex items-center"><AlertCircle className="w-4 h-4 mr-1" />{errors.nombre}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="email" className="text-slate-300">Email *</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={newClient.email}
+                        onChange={(e) => setNewClient(prev => ({ ...prev, email: e.target.value }))}
+                        className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-500"
+                        placeholder="cliente@email.com"
+                      />
+                      {errors.email && <p className="text-sm text-red-400 flex items-center"><AlertCircle className="w-4 h-4 mr-1" />{errors.email}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="telefono" className="text-slate-300">Teléfono</Label>
+                      <Input
+                        id="telefono"
+                        value={newClient.telefono}
+                        onChange={(e) => setNewClient(prev => ({ ...prev, telefono: e.target.value }))}
+                        className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-500"
+                        placeholder="+1234567890"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="estado" className="text-slate-300">Estado</Label>
+                      <Select value={newClient.estado} onValueChange={(value: any) => setNewClient(prev => ({ ...prev, estado: value }))}>
+                        <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-slate-600">
+                          <SelectItem value="Activo" className="text-white hover:bg-slate-700">Activo</SelectItem>
+                          <SelectItem value="Pendiente" className="text-white hover:bg-slate-700">Pendiente</SelectItem>
+                          <SelectItem value="Inactivo" className="text-white hover:bg-slate-700">Inactivo</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="notas" className="text-slate-300">Notas</Label>
+                      <Input
+                        id="notas"
+                        value={newClient.notas}
+                        onChange={(e) => setNewClient(prev => ({ ...prev, notas: e.target.value }))}
+                        className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-500"
+                        placeholder="Notas adicionales..."
+                      />
+                    </div>
+
+                    {errors.general && (
+                      <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                        <p className="text-sm text-red-400">{errors.general}</p>
+                      </div>
+                    )}
+
+                    <div className="flex gap-3 pt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsModalOpen(false)}
+                        className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800"
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="flex-1 bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700"
+                      >
+                        {isSubmitting ? 'Creando...' : 'Crear Cliente'}
+                      </Button>
+                    </div>
+                  </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {/* Search Bar */}
+          <div className="mb-6">
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-3 h-5 w-5 text-slate-500" />
+              <Input
+                type="text"
+                placeholder="Buscar clientes por nombre o email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 bg-slate-800/30 border-slate-600/50 text-white placeholder:text-slate-400 focus:border-emerald-500/50 transition-colors"
+              />
+            </div>
+          </div>
+
+          <Card className="bg-slate-900/40 backdrop-blur-lg border-slate-700/50">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="border-b border-slate-700/50">
+                    <tr>
+                      <th className="text-left p-4 text-sm font-medium text-slate-400">Cliente</th>
+                      <th className="text-left p-4 text-sm font-medium text-slate-400">Email</th>
+                      <th className="text-left p-4 text-sm font-medium text-slate-400">Estado</th>
+                      <th className="text-left p-4 text-sm font-medium text-slate-400">Teléfono</th>
+                      <th className="text-left p-4 text-sm font-medium text-slate-400">Fecha Registro</th>
+                      <th className="text-left p-4 text-sm font-medium text-slate-400">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredClients.map((client, index) => (
+                      <motion.tr
+                        key={client.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: 0.1 * index }}
+                        className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors"
+                      >
+                        <td className="p-4">
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full flex items-center justify-center mr-3">
+                              <span className="text-white font-semibold text-sm">
+                                {client.nombre.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-white font-medium">{client.nombre}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4 text-slate-300">{client.email || '-'}</td>
+                        <td className="p-4">
+                          <Badge className={`border ${getStatusColor(client.estado)}`}>
+                            {client.estado}
+                          </Badge>
+                        </td>
+                        <td className="p-4 text-slate-300">{client.telefono || '-'}</td>
+                        <td className="p-4 text-slate-300">
+                          {client.created_at ? new Date(client.created_at).toLocaleDateString('es-ES') : '-'}
+                        </td>
+                        <td className="p-4">
+                          <div className="flex space-x-2">
+                            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-300">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    ))}
+                    {filteredClients.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="p-12">
+                          {searchQuery ? (
+                            <div className="text-center">
+                              <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Search className="w-8 h-8 text-slate-500" />
+                              </div>
+                              <p className="text-slate-400 mb-2">
+                                No se encontraron clientes que coincidan con tu búsqueda
+                              </p>
+                              <p className="text-sm text-slate-500">
+                                Intenta con otros términos o limpia la búsqueda
+                              </p>
+                            </div>
+                          ) : (
+                            <motion.div
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="text-center"
+                            >
+                              <motion.div
+                                animate={{
+                                  scale: [1, 1.05, 1],
+                                }}
+                                transition={{
+                                  duration: 2,
+                                  repeat: Infinity,
+                                  ease: "easeInOut"
+                                }}
+                                className="w-20 h-20 bg-gradient-to-r from-blue-500/10 to-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-blue-500/20"
+                              >
+                                <Users className="w-10 h-10 text-blue-400" />
+                              </motion.div>
+                              <h3 className="text-xl font-semibold text-white mb-2">
+                                ¡Comienza tu viaje!
+                              </h3>
+                              <p className="text-slate-400 mb-6 max-w-md mx-auto">
+                                Aún no tienes clientes registrados. Comienza añadiendo tu primer cliente
+                                para gestionar tus proyectos de manera profesional.
+                              </p>
+                              <Button
+                                onClick={() => setIsModalOpen(true)}
+                                className="bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700"
+                              >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Añadir mi primer cliente
+                              </Button>
+                            </motion.div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Quick Actions */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="mb-8"
+        >
+          <h2 className="text-2xl font-semibold text-white mb-6">
+            Acciones Rápidas
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {quickActions.map((action, index) => (
+              <motion.div
+                key={action.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.1 * index }}
+                whileHover={{ y: -5 }}
+                className="cursor-pointer"
+                onClick={action.action}
+              >
+                <Card className="bg-slate-900/60 backdrop-blur-lg border-slate-700/50 hover:border-slate-600/50 transition-colors">
+                  <CardContent className="p-6">
+                    <div className={`w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-emerald-500 flex items-center justify-center mb-4`}>
+                      <action.icon className="w-6 h-6 text-white" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-white mb-2">
+                      {action.title}
+                    </h3>
+                    <p className="text-slate-400 text-sm">
+                      {action.description}
+                    </p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Quick Stats Footer */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.6 }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-6"
+        >
+          <Card className="bg-slate-900/40 backdrop-blur-lg border-slate-700/50">
+            <CardContent className="p-6 text-center">
+              <motion.div
+                animate={{
+                  scale: [1, 1.05, 1],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="w-12 h-12 bg-gradient-to-r from-blue-500 to-emerald-500 rounded-lg flex items-center justify-center mx-auto mb-4"
+              >
+                <TrendingUp className="w-6 h-6 text-white" />
+              </motion.div>
+              <h3 className="text-lg font-semibold text-white mb-2">Crecimiento</h3>
+              <p className="text-slate-400 text-sm">
+                Tu negocio está creciendo. ¡Sigue así!
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-slate-900/40 backdrop-blur-lg border-slate-700/50">
+            <CardContent className="p-6 text-center">
+              <motion.div
+                animate={{
+                  scale: [1, 1.05, 1],
+                }}
+                transition={{
+                  duration: 3,
+                  delay: 1,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg flex items-center justify-center mx-auto mb-4"
+              >
+                <Target className="w-6 h-6 text-white" />
+              </motion.div>
+              <h3 className="text-lg font-semibold text-white mb-2">Objetivos</h3>
+              <p className="text-slate-400 text-sm">
+                Establece metas y alcanza el éxito.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-slate-900/40 backdrop-blur-lg border-slate-700/50">
+            <CardContent className="p-6 text-center">
+              <motion.div
+                animate={{
+                  scale: [1, 1.05, 1],
+                }}
+                transition={{
+                  duration: 3,
+                  delay: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mx-auto mb-4"
+              >
+                <Sparkles className="w-6 h-6 text-white" />
+              </motion.div>
+              <h3 className="text-lg font-semibold text-white mb-2">Innovación</h3>
+              <p className="text-slate-400 text-sm">
+                Mantente a la vanguardia de la tecnología.
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+        </main>
+      </div>
+    </div>
+  );
+}

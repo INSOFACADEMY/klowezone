@@ -1,0 +1,7 @@
+"Eres un experto en Next.js. 
+RESTRICCIÓN CRUCIAL: Tu espacio de trabajo es exclusivamente la carpeta actual. No busques archivos, no leas configuraciones ni intentes instalar dependencias fuera de la ruta del proyecto. Ignora cualquier archivo package.json que encuentres en niveles superiores de la jerarquía de carpetas."
+Estructura de Trabajo:
+- Tu raíz absoluta es C:/Users/jarob/klowezone.
+- No leas ni asumas configuraciones de directorios superiores.
+- Ignora cualquier 'package-lock.json' fuera de esta carpeta.
+- Todas las importaciones deben resolverse dentro de ./src/ usando el alias @/.
