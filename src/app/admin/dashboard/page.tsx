@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
 import {
   Users,
   FileText,
@@ -15,19 +14,15 @@ import {
   MessageSquare,
   Server,
   Database,
-  Shield
+  Shield,
+  RefreshCw
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-
-// Mock data - replace with real API calls
-const mockKPIs = {
-  totalUsers: 1247,
-  totalPosts: 89,
-  totalRevenue: 45230,
-  activeProjects: 23,
+import { getDashboardStats } from '@/lib/dashboard-service'
+import type { DashboardStats } from '@/lib/dashboard-service'
   systemHealth: 98,
   errorRate: 0.2
 }
@@ -67,16 +62,28 @@ const mockHealthChecks = [
 ]
 
 export default function AdminDashboard() {
-  const [kpis, setKpis] = useState(mockKPIs)
-  const [alerts, setAlerts] = useState(mockAlerts)
-  const [healthChecks, setHealthChecks] = useState(mockHealthChecks)
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Simulate real-time updates
+  // Load dashboard data
+  const loadDashboardData = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const data = await getDashboardStats()
+      setStats(data)
+    } catch (err) {
+      console.error('Error loading dashboard data:', err)
+      setError('Error al cargar los datos del dashboard')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   useEffect(() => {
-    const interval = setInterval(() => {
-      setKpis(prev => ({
-        ...prev,
-        totalUsers: prev.totalUsers + Math.floor(Math.random() * 3) - 1,
+    loadDashboardData()
+  }, [])
         systemHealth: Math.max(95, Math.min(100, prev.systemHealth + (Math.random() - 0.5)))
       }))
     }, 30000) // Update every 30 seconds
@@ -111,14 +118,40 @@ export default function AdminDashboard() {
     }
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <RefreshCw className="w-8 h-8 animate-spin text-emerald-400 mx-auto mb-4" />
+          <p className="text-slate-400">Cargando dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-4" />
+          <p className="text-slate-400 mb-4">{error}</p>
+          <Button onClick={loadDashboardData} variant="outline">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Reintentar
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!stats) {
+    return null
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between"
-      >
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-white">Dashboard Administrativo</h1>
           <p className="text-slate-400 mt-1">
@@ -132,7 +165,7 @@ export default function AdminDashboard() {
           </Badge>
           <Badge variant="outline" className="border-blue-500/50 text-blue-400">
             <Activity className="w-3 h-3 mr-1" />
-            {kpis.systemHealth}% Salud
+            {stats.systemHealth}% Salud
           </Badge>
         </div>
       </motion.div>
@@ -150,7 +183,7 @@ export default function AdminDashboard() {
             <Users className="h-4 w-4 text-slate-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">{kpis.totalUsers.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-white">{stats.totalUsers.toLocaleString()}</div>
             <p className="text-xs text-emerald-400 flex items-center mt-1">
               <TrendingUp className="w-3 h-3 mr-1" />
               +12% vs mes anterior
@@ -164,7 +197,7 @@ export default function AdminDashboard() {
             <FileText className="h-4 w-4 text-slate-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">{kpis.totalPosts}</div>
+            <div className="text-2xl font-bold text-white">0</div>
             <p className="text-xs text-emerald-400 flex items-center mt-1">
               <TrendingUp className="w-3 h-3 mr-1" />
               +3 posts esta semana
@@ -178,7 +211,7 @@ export default function AdminDashboard() {
             <DollarSign className="h-4 w-4 text-slate-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">${kpis.totalRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-white">${stats.totalRevenue.toLocaleString()}</div>
             <p className="text-xs text-emerald-400 flex items-center mt-1">
               <TrendingUp className="w-3 h-3 mr-1" />
               +8% vs mes anterior
@@ -192,7 +225,7 @@ export default function AdminDashboard() {
             <Activity className="h-4 w-4 text-slate-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">{kpis.activeProjects}</div>
+            <div className="text-2xl font-bold text-white">{stats.activeProjects}</div>
             <p className="text-xs text-amber-400 flex items-center mt-1">
               <Clock className="w-3 h-3 mr-1" />
               5 requieren atención
