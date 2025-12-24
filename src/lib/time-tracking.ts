@@ -119,13 +119,13 @@ export async function getActiveTimeEntries(userId?: string): Promise<TimeEntry[]
 
     if (error) {
       console.error('Error fetching active time entries:', error)
-      throw error
+      return [] // Devolver array vacío en caso de error
     }
 
     return data as TimeEntry[]
   } catch (error) {
     console.error('Error in getActiveTimeEntries:', error)
-    throw error
+    return [] // Devolver array vacío en caso de error
   }
 }
 

@@ -373,11 +373,11 @@ export default function DashboardPage() {
               onClick={() => router.push('/dashboard/projects')}
               className="w-full text-left bg-slate-800/30 hover:bg-slate-800/50 rounded-lg p-3 border border-slate-700/30 transition-colors group"
             >
-              <div className="flex items-center text-slate-200 group-hover:text-white">
+              <div className="flex items-center text-slate-100 group-hover:text-white">
                 <Briefcase className="w-5 h-5 mr-3" />
                 <span className="font-medium">Proyectos</span>
               </div>
-              <div className="text-xs text-slate-500 mt-1 ml-8">
+              <div className="text-xs text-slate-400 mt-1 ml-8">
                 Kanban, Equipos, Gantt
               </div>
             </button>
@@ -387,11 +387,11 @@ export default function DashboardPage() {
               onClick={() => router.push('/dashboard/ai')}
               className="w-full text-left bg-slate-800/30 hover:bg-slate-800/50 rounded-lg p-3 border border-slate-700/30 transition-colors group"
             >
-              <div className="flex items-center text-slate-200 group-hover:text-white">
+              <div className="flex items-center text-slate-100 group-hover:text-white">
                 <Sparkles className="w-5 h-5 mr-3" />
                 <span className="font-medium">IA Assistant</span>
               </div>
-              <div className="text-xs text-slate-500 mt-1 ml-8">
+              <div className="text-xs text-slate-400 mt-1 ml-8">
                 Auto-cronograma, Reportes
               </div>
             </button>
@@ -401,11 +401,11 @@ export default function DashboardPage() {
               onClick={() => router.push('/dashboard/finances')}
               className="w-full text-left bg-slate-800/30 hover:bg-slate-800/50 rounded-lg p-3 border border-slate-700/30 transition-colors group"
             >
-              <div className="flex items-center text-slate-200 group-hover:text-white">
+              <div className="flex items-center text-slate-100 group-hover:text-white">
                 <DollarSign className="w-5 h-5 mr-3" />
                 <span className="font-medium">Finanzas</span>
               </div>
-              <div className="text-xs text-slate-500 mt-1 ml-8">
+              <div className="text-xs text-slate-400 mt-1 ml-8">
                 Métricas, Gastos, Facturación
               </div>
             </button>
@@ -415,11 +415,11 @@ export default function DashboardPage() {
               onClick={() => router.push('/dashboard/clients')}
               className="w-full text-left bg-slate-800/30 hover:bg-slate-800/50 rounded-lg p-3 border border-slate-700/30 transition-colors group"
             >
-              <div className="flex items-center text-slate-200 group-hover:text-white">
+              <div className="flex items-center text-slate-100 group-hover:text-white">
                 <Users className="w-5 h-5 mr-3" />
                 <span className="font-medium">Clientes</span>
               </div>
-              <div className="text-xs text-slate-500 mt-1 ml-8">
+              <div className="text-xs text-slate-400 mt-1 ml-8">
                 Gestión, Historial
               </div>
             </button>
@@ -444,7 +444,7 @@ export default function DashboardPage() {
               onClick={handleLogout}
               disabled={isLoggingOut}
               variant="ghost"
-              className="w-full text-red-400 hover:text-red-300 hover:bg-red-500/10 justify-start"
+              className="w-full text-red-400 hover:text-red-300 hover:bg-red-500/10 hover:!text-red-600 justify-start"
             >
               {isLoggingOut ? (
                 <div className="flex items-center">
@@ -501,14 +501,14 @@ export default function DashboardPage() {
 
             <Dialog open={isProjectModalOpen} onOpenChange={setIsProjectModalOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" className="border-purple-500/50 text-purple-300 hover:bg-purple-500/10">
+                <Button className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white">
                   <Plus className="w-4 h-4 mr-2" />
                   Nuevo Proyecto
                 </Button>
               </DialogTrigger>
             </Dialog>
 
-            <Button variant="outline" className="border-slate-600 text-slate-200 hover:bg-slate-800">
+            <Button className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white">
               <Receipt className="w-4 h-4 mr-2" />
               Crear Factura
             </Button>
@@ -516,8 +516,7 @@ export default function DashboardPage() {
             <Button
               onClick={handleInsertTestData}
               disabled={isInsertingTestData}
-              variant="outline"
-              className="border-slate-600 text-slate-200 hover:bg-slate-800"
+              className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white disabled:opacity-50"
             >
               {isInsertingTestData ? (
                 <div className="flex items-center">
@@ -818,7 +817,7 @@ export default function DashboardPage() {
           </DialogHeader>
           <form onSubmit={handleCreateClient} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="nombre" className="text-slate-200">Nombre *</Label>
+              <Label htmlFor="nombre" className="text-slate-100">Nombre *</Label>
               <Input
                 id="nombre"
                 value={newClient.nombre}
@@ -830,7 +829,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-slate-200">Email *</Label>
+              <Label htmlFor="email" className="text-slate-100">Email *</Label>
               <Input
                 id="email"
                 type="email"
@@ -843,7 +842,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="telefono" className="text-slate-200">Teléfono</Label>
+              <Label htmlFor="telefono" className="text-slate-100">Teléfono</Label>
               <Input
                 id="telefono"
                 value={newClient.telefono}
@@ -854,7 +853,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="estado" className="text-slate-200">Estado</Label>
+              <Label htmlFor="estado" className="text-slate-100">Estado</Label>
               <Select value={newClient.estado} onValueChange={(value: any) => setNewClient(prev => ({ ...prev, estado: value }))}>
                 <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
                   <SelectValue />
@@ -878,7 +877,7 @@ export default function DashboardPage() {
                 type="button"
                 variant="outline"
                 onClick={() => setIsModalOpen(false)}
-                className="flex-1 border-slate-600 text-slate-200 hover:bg-slate-800"
+                className="flex-1 border border-slate-700 text-slate-100 hover:bg-slate-800 hover:border-slate-600"
               >
                 Cancelar
               </Button>
@@ -905,7 +904,7 @@ export default function DashboardPage() {
           </DialogHeader>
           <form onSubmit={handleCreateProject} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="cliente_id" className="text-slate-200">Cliente *</Label>
+              <Label htmlFor="cliente_id" className="text-slate-100">Cliente *</Label>
               <Select value={newProject.cliente_id} onValueChange={(value) => setNewProject(prev => ({ ...prev, cliente_id: value }))}>
                 <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
                   <SelectValue placeholder="Selecciona un cliente" />
@@ -922,7 +921,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="project_name" className="text-slate-200">Nombre del Proyecto *</Label>
+              <Label htmlFor="project_name" className="text-slate-100">Nombre del Proyecto *</Label>
               <Input
                 id="project_name"
                 value={newProject.nombre_proyecto}
@@ -935,7 +934,7 @@ export default function DashboardPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="prioridad" className="text-slate-200">Prioridad</Label>
+                <Label htmlFor="prioridad" className="text-slate-100">Prioridad</Label>
                 <Select value={newProject.prioridad} onValueChange={(value: any) => setNewProject(prev => ({ ...prev, prioridad: value }))}>
                   <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
                     <SelectValue />
@@ -950,13 +949,13 @@ export default function DashboardPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="estado" className="text-slate-200">Estado</Label>
+                <Label htmlFor="estado" className="text-slate-100">Estado</Label>
                 <Select value={newProject.estado} onValueChange={(value: any) => setNewProject(prev => ({ ...prev, estado: value }))}>
                   <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-800 border-slate-600">
-                    <SelectItem value="Planificación" className="text-slate-400 hover:bg-slate-700">📋 Planificación</SelectItem>
+                    <SelectItem value="Planificación" className="text-slate-100 hover:bg-slate-700">📋 Planificación</SelectItem>
                     <SelectItem value="En Progreso" className="text-blue-400 hover:bg-slate-700">⚡ En Progreso</SelectItem>
                     <SelectItem value="Completado" className="text-green-400 hover:bg-slate-700">✅ Completado</SelectItem>
                     <SelectItem value="Pausado" className="text-yellow-400 hover:bg-slate-700">⏸️ Pausado</SelectItem>
@@ -967,7 +966,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="fecha_entrega" className="text-slate-200">Fecha de Entrega</Label>
+              <Label htmlFor="fecha_entrega" className="text-slate-100">Fecha de Entrega</Label>
               <Input
                 id="fecha_entrega"
                 type="date"
@@ -988,7 +987,7 @@ export default function DashboardPage() {
                 type="button"
                 variant="outline"
                 onClick={() => setIsProjectModalOpen(false)}
-                className="flex-1 border-slate-600 text-slate-200 hover:bg-slate-800"
+                className="flex-1 border border-slate-700 text-slate-100 hover:bg-slate-800 hover:border-slate-600"
               >
                 Cancelar
               </Button>

@@ -64,3 +64,4 @@ export function checkEnvironmentVariables() {
     valid: !!(url && key)
   }
 }
+

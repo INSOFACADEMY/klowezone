@@ -304,7 +304,7 @@ export default function ClientsPage() {
                             <span>{new Date(client.created_at).toLocaleDateString('es-ES')}</span>
                           </div>
                         ) : (
-                          <span className="text-slate-500">Sin actividad</span>
+                          <span className="text-slate-400">Sin actividad</span>
                         )}
                       </div>
                     </TableCell>
@@ -318,7 +318,7 @@ export default function ClientsPage() {
                             e.stopPropagation()
                             // Editar cliente
                           }}
-                          className="text-slate-400 hover:text-white hover:bg-slate-700"
+                          className="text-slate-100 hover:text-white hover:bg-slate-700"
                         >
                           <Edit className="w-4 h-4" />
                         </Button>
@@ -329,7 +329,7 @@ export default function ClientsPage() {
                             e.stopPropagation()
                             // Eliminar cliente
                           }}
-                          className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                          className="text-red-400 hover:text-red-300 hover:bg-red-500/20 hover:!text-red-600"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>

@@ -72,3 +72,4 @@ npm run lint
 - **Dashboard**: `http://localhost:3000/dashboard`
 
 ¡Tu aplicación Klowezone está lista para recibir usuarios! 🚀
+

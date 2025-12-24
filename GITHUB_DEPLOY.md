@@ -167,3 +167,4 @@ Vercel detectará automáticamente que es un proyecto Next.js.
 **¡Tu aplicación Klowezone está lista para el lanzamiento público!** 🎉
 
 Recuerda configurar las variables de entorno en producción antes del despliegue.
+

@@ -218,7 +218,7 @@ export default function AIAssistantPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="projectName" className="text-slate-200">Nombre del Proyecto</Label>
+                    <Label htmlFor="projectName" className="text-slate-100">Nombre del Proyecto</Label>
                     <Input
                       id="projectName"
                       value={scheduleRequest.projectName}
@@ -228,7 +228,7 @@ export default function AIAssistantPage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="complexity" className="text-slate-200">Complejidad</Label>
+                    <Label htmlFor="complexity" className="text-slate-100">Complejidad</Label>
                     <Select
                       value={scheduleRequest.complexity}
                       onValueChange={(value: any) => setScheduleRequest(prev => ({ ...prev, complexity: value }))}
@@ -246,7 +246,7 @@ export default function AIAssistantPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="description" className="text-slate-200">Descripción del Proyecto</Label>
+                  <Label htmlFor="description" className="text-slate-100">Descripción del Proyecto</Label>
                   <Textarea
                     id="description"
                     value={scheduleRequest.projectDescription}
@@ -259,7 +259,7 @@ export default function AIAssistantPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="startDate" className="text-slate-200">Fecha de Inicio</Label>
+                    <Label htmlFor="startDate" className="text-slate-100">Fecha de Inicio</Label>
                     <Input
                       id="startDate"
                       type="date"
@@ -269,7 +269,7 @@ export default function AIAssistantPage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="teamSize" className="text-slate-200">Tamaño del Equipo</Label>
+                    <Label htmlFor="teamSize" className="text-slate-100">Tamaño del Equipo</Label>
                     <Input
                       id="teamSize"
                       type="number"
@@ -354,7 +354,7 @@ export default function AIAssistantPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="project" className="text-slate-200">Seleccionar Proyecto</Label>
+                  <Label htmlFor="project" className="text-slate-100">Seleccionar Proyecto</Label>
                   <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
                     <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
                       <SelectValue placeholder="Elige un proyecto" />
@@ -459,7 +459,7 @@ export default function AIAssistantPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="industry" className="text-slate-200">Industria</Label>
+                    <Label htmlFor="industry" className="text-slate-100">Industria</Label>
                     <Select
                       value={templateRequest.industry}
                       onValueChange={(value) => setTemplateRequest(prev => ({ ...prev, industry: value }))}
@@ -478,7 +478,7 @@ export default function AIAssistantPage() {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="projectType" className="text-slate-200">Tipo de Proyecto</Label>
+                    <Label htmlFor="projectType" className="text-slate-100">Tipo de Proyecto</Label>
                     <Input
                       id="projectType"
                       value={templateRequest.projectType}
@@ -491,7 +491,7 @@ export default function AIAssistantPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="category" className="text-slate-200">Categoría de Tarea</Label>
+                    <Label htmlFor="category" className="text-slate-100">Categoría de Tarea</Label>
                     <Select
                       value={templateRequest.taskCategory}
                       onValueChange={(value: any) => setTemplateRequest(prev => ({ ...prev, taskCategory: value }))}
@@ -509,7 +509,7 @@ export default function AIAssistantPage() {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="complexity" className="text-slate-200">Complejidad</Label>
+                    <Label htmlFor="complexity" className="text-slate-100">Complejidad</Label>
                     <Select
                       value={templateRequest.complexity}
                       onValueChange={(value: any) => setTemplateRequest(prev => ({ ...prev, complexity: value }))}

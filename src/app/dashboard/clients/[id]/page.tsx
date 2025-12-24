@@ -1,13 +1,16 @@
 'use client'
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { supabase } from "@/lib/supabase";
-import { getClientById, getClientProjects, Client } from "@/lib/clients";
+import { getClientById, Client } from "@/lib/clients";
+import { getProjectsByClient, Project } from "@/lib/projects";
 import {
   ArrowLeft,
   Mail,
@@ -20,124 +23,377 @@ import {
   CheckCircle,
   AlertCircle,
   User,
-  Building
+  Building,
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  FileCheck,
+  FileClock,
+  FileX,
+  Activity,
+  Plus,
+  Send,
+  Calendar as CalendarIcon,
+  Star,
+  Award,
+  Archive,
+  Download,
+  Upload,
+  Eye,
+  Edit,
+  Trash2,
+  MoreHorizontal,
+  ChevronRight,
+  Paperclip,
+  MessageSquare,
+  CreditCard,
+  PieChart,
+  LineChart
 } from "lucide-react";
 
-export default function ClientDetailPage() {
+// Types for advanced client view
+interface ClientDocument {
+  id: string;
+  name: string;
+  type: 'contrato' | 'propuesta' | 'factura' | 'otro';
+  status: 'firmado' | 'pendiente' | 'expirado';
+  created_at: string;
+  size?: number;
+}
+
+interface ClientActivity {
+  id: string;
+  type: 'email' | 'task_update' | 'payment' | 'meeting' | 'document';
+  title: string;
+  description: string;
+  timestamp: string;
+  icon: React.ReactNode;
+}
+
+interface ClientFinancials {
+  totalRevenue: number;
+  totalExpenses: number;
+  pendingPayments: number;
+  profitability: number;
+  monthlyData: Array<{
+    month: string;
+    revenue: number;
+    expenses: number;
+  }>;
+}
+
+export default function ClientDeepViewPage() {
   const router = useRouter();
   const params = useParams();
   const clientId = params.id as string;
 
   const [client, setClient] = useState<Client | null>(null);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [documents, setDocuments] = useState<ClientDocument[]>([]);
+  const [activities, setActivities] = useState<ClientActivity[]>([]);
+  const [financials, setFinancials] = useState<ClientFinancials | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [portalLink, setPortalLink] = useState<string | null>(null);
+  const [generatingLink, setGeneratingLink] = useState(false);
+  const [milestones, setMilestones] = useState<any[]>([]);
+  const [showMilestoneModal, setShowMilestoneModal] = useState(false);
 
-  useEffect(() => {
-    const loadClientData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  // Calculate Client Health Score
+  const clientHealthScore = useMemo(() => {
+    if (!client || !projects.length || !financials) return null;
 
-        // Cargar cliente y sus proyectos en paralelo
-        const [clientData, projectsData] = await Promise.all([
-          getClientById(clientId),
-          getClientProjects(clientId)
-        ]);
+    let score = 0;
+    let maxScore = 100;
 
-        if (!clientData) {
-          setError('Cliente no encontrado');
-          return;
-        }
+    // Profitability (40 points)
+    const profitabilityScore = Math.min(40, (financials.profitability / 100) * 40);
+    score += profitabilityScore;
 
-        setClient(clientData);
-        setProjects(projectsData);
-      } catch (err) {
-        console.error('Error loading client data:', err);
-        setError('Error al cargar los datos del cliente');
-      } finally {
-        setLoading(false);
+    // Payment timeliness (30 points) - simulated based on pending payments
+    const paymentRatio = (financials.totalRevenue - financials.pendingPayments) / financials.totalRevenue;
+    const paymentScore = paymentRatio * 30;
+    score += paymentScore;
+
+    // Project completion rate (30 points)
+    const completedProjects = projects.filter(p => p.estado === 'Completado').length;
+    const completionRate = completedProjects / projects.length;
+    const completionScore = completionRate * 30;
+    score += completionScore;
+
+    // Determine grade
+    let grade: 'A' | 'B' | 'C';
+    let gradeColor: string;
+    let gradeDescription: string;
+
+    if (score >= 80) {
+      grade = 'A';
+      gradeColor = 'text-emerald-400 bg-emerald-500/20';
+      gradeDescription = 'Excelente cliente - Alto rendimiento';
+    } else if (score >= 60) {
+      grade = 'B';
+      gradeColor = 'text-blue-400 bg-blue-500/20';
+      gradeDescription = 'Buen cliente - Rendimiento sólido';
+    } else {
+      grade = 'C';
+      gradeColor = 'text-amber-400 bg-amber-500/20';
+      gradeDescription = 'Cliente regular - Requiere atención';
+    }
+
+    return {
+      score: Math.round(score),
+      grade,
+      gradeColor,
+      gradeDescription,
+      breakdown: {
+        profitability: Math.round(profitabilityScore),
+        payments: Math.round(paymentScore),
+        projects: Math.round(completionScore)
       }
     };
+  }, [client, projects, financials]);
 
+
+  // Load comprehensive client data
+  const loadClientData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Load all data in parallel
+      const [clientData, projectsData] = await Promise.all([
+        getClientById(clientId),
+        getProjectsByClient(clientId)
+      ]);
+
+      if (!clientData) {
+        setError('Cliente no encontrado');
+        return;
+      }
+
+      setClient(clientData);
+      setProjects(projectsData);
+
+      // Simulate loading additional data
+      await loadClientDocuments(clientId);
+      await loadClientActivities(clientId);
+      await loadClientFinancials(clientId);
+
+    } catch (err) {
+      console.error('Error loading client data:', err);
+      setError('Error al cargar los datos del cliente');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load client documents (simulated)
+  const loadClientDocuments = async (clientId: string) => {
+    // Simulate document data
+    const mockDocuments: ClientDocument[] = [
+      {
+        id: '1',
+        name: 'Contrato de Servicios 2024.pdf',
+        type: 'contrato',
+        status: 'firmado',
+        created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        size: 2457600
+      },
+      {
+        id: '2',
+        name: 'Propuesta Desarrollo Web.docx',
+        type: 'propuesta',
+        status: 'pendiente',
+        created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+        size: 512000
+      },
+      {
+        id: '3',
+        name: 'Factura Julio 2024.pdf',
+        type: 'factura',
+        status: 'firmado',
+        created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        size: 128000
+      }
+    ];
+    setDocuments(mockDocuments);
+  };
+
+  // Load client activities (simulated)
+  const loadClientActivities = async (clientId: string) => {
+    const mockActivities: ClientActivity[] = [
+      {
+        id: '1',
+        type: 'payment',
+        title: 'Pago recibido',
+        description: 'Pago de $15,000 MXN por proyecto Desarrollo Web',
+        timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        icon: <CreditCard className="w-4 h-4" />
+      },
+      {
+        id: '2',
+        type: 'task_update',
+        title: 'Tarea completada',
+        description: 'Revisión de diseño finalizada en proyecto E-commerce',
+        timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+        icon: <CheckCircle className="w-4 h-4" />
+      },
+      {
+        id: '3',
+        type: 'email',
+        title: 'Correo enviado',
+        description: 'Propuesta técnica enviada al equipo del cliente',
+        timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        icon: <Mail className="w-4 h-4" />
+      },
+      {
+        id: '4',
+        type: 'meeting',
+        title: 'Reunión programada',
+        description: 'Reunión de seguimiento para proyecto móvil',
+        timestamp: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+        icon: <CalendarIcon className="w-4 h-4" />
+      }
+    ];
+    setActivities(mockActivities);
+  };
+
+  // Load client financials (simulated)
+  const loadClientFinancials = async (clientId: string) => {
+    const mockFinancials: ClientFinancials = {
+      totalRevenue: 125000,
+      totalExpenses: 35000,
+      pendingPayments: 15000,
+      profitability: 72,
+      monthlyData: [
+        { month: 'Ene', revenue: 20000, expenses: 5000 },
+        { month: 'Feb', revenue: 25000, expenses: 7000 },
+        { month: 'Mar', revenue: 30000, expenses: 8000 },
+        { month: 'Abr', revenue: 25000, expenses: 6000 },
+        { month: 'May', revenue: 25000, expenses: 9000 }
+      ]
+    };
+    setFinancials(mockFinancials);
+  };
+
+  useEffect(() => {
     if (clientId) {
       loadClientData();
     }
   }, [clientId]);
 
-  // Calcular progreso de proyectos
+  // Helper functions
   const getProgressInfo = (estado: string) => {
     switch (estado) {
-      case 'Planificación':
-        return { progress: 25, color: 'from-slate-400 to-slate-500', bgColor: 'bg-slate-500' };
-      case 'En Progreso':
-        return { progress: 65, color: 'from-blue-400 to-blue-600', bgColor: 'bg-blue-500' };
-      case 'Completado':
-        return { progress: 100, color: 'from-green-400 to-green-600', bgColor: 'bg-green-500' };
-      case 'Pausado':
-        return { progress: 40, color: 'from-yellow-400 to-yellow-600', bgColor: 'bg-yellow-500' };
-      case 'Cancelado':
-        return { progress: 0, color: 'from-red-400 to-red-600', bgColor: 'bg-red-500' };
-      default:
-        return { progress: 0, color: 'from-slate-400 to-slate-500', bgColor: 'bg-slate-500' };
+      case 'Planificación': return { progress: 25, color: 'from-slate-400 to-slate-500', bgColor: 'bg-slate-500' };
+      case 'En Progreso': return { progress: 65, color: 'from-indigo-400 to-indigo-600', bgColor: 'bg-indigo-500' };
+      case 'Completado': return { progress: 100, color: 'from-emerald-400 to-emerald-600', bgColor: 'bg-emerald-500' };
+      case 'Pausado': return { progress: 40, color: 'from-amber-400 to-amber-600', bgColor: 'bg-amber-500' };
+      case 'Cancelado': return { progress: 0, color: 'from-red-400 to-red-600', bgColor: 'bg-red-500' };
+      default: return { progress: 0, color: 'from-slate-500 to-slate-600', bgColor: 'bg-slate-500' };
     }
   };
 
-  const getStatusColor = (estado: string) => {
-    switch (estado) {
-      case 'Activo':
-        return 'bg-green-500/10 text-green-400 border-green-500/20';
-      case 'Pendiente':
-        return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20';
-      case 'Inactivo':
-        return 'bg-red-500/10 text-red-400 border-red-500/20';
-      default:
-        return 'bg-slate-500/10 text-slate-400 border-slate-500/20';
+  const getDocumentIcon = (type: ClientDocument['type']) => {
+    switch (type) {
+      case 'contrato': return <FileCheck className="w-5 h-5 text-emerald-400" />;
+      case 'propuesta': return <FileText className="w-5 h-5 text-blue-400" />;
+      case 'factura': return <FileText className="w-5 h-5 text-purple-400" />;
+      default: return <FileText className="w-5 h-5 text-slate-400" />;
     }
   };
 
-  const getPriorityIcon = (prioridad: string) => {
-    switch (prioridad) {
-      case 'Urgente':
-        return '🔴';
-      case 'Alta':
-        return '🟠';
-      case 'Media':
-        return '🟡';
-      case 'Baja':
-        return '🟢';
-      default:
-        return '⚪';
+  const getDocumentStatusBadge = (status: ClientDocument['status']) => {
+    switch (status) {
+      case 'firmado': return <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Firmado</Badge>;
+      case 'pendiente': return <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">Pendiente</Badge>;
+      case 'expirado': return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">Expirado</Badge>;
+      default: return <Badge className="bg-slate-500/20 text-slate-400 border-slate-500/30">{status}</Badge>;
     }
   };
 
+  // Generate portal invitation link
+  const generatePortalInvitation = async (clientId: string) => {
+    setGeneratingLink(true);
+    try {
+      // In a real implementation, this would:
+      // 1. Generate a unique token
+      // 2. Store it in the database with expiration
+      // 3. Return the portal URL
+
+      // For now, simulate the process
+      const token = `portal_${clientId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const portalUrl = `${window.location.origin}/portal/${clientId}`;
+
+      setPortalLink(portalUrl);
+
+      // Copy to clipboard automatically
+      await navigator.clipboard.writeText(portalUrl);
+
+      // Show success message (you could add a toast notification here)
+      alert('¡Enlace del portal generado y copiado al portapapeles!');
+
+    } catch (err) {
+      console.error('Error generating portal invitation:', err);
+      alert('Error al generar el enlace del portal');
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
+
+  // Trigger milestone notification
+  const triggerMilestoneNotification = async (milestoneTitle: string, description: string) => {
+    try {
+      // In a real implementation, this would:
+      // 1. Update task status in database
+      // 2. Create milestone record
+      // 3. Send notification to client via email/SMS
+      // 4. Update client's portal with new milestone
+
+      const newMilestone = {
+        id: Date.now().toString(),
+        title: milestoneTitle,
+        description,
+        completed_at: new Date().toISOString(),
+        notified: true
+      };
+
+      setMilestones(prev => [newMilestone, ...prev]);
+
+      // Simulate sending notification
+      console.log(`🔔 Milestone notification sent to client: ${milestoneTitle}`);
+
+      // Update activity timeline in portal
+      alert(`¡Hito completado! El cliente ${client?.nombre} ha sido notificado automáticamente.`);
+
+    } catch (err) {
+      console.error('Error triggering milestone notification:', err);
+      alert('Error al procesar el hito');
+    }
+  };
+
+  // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-600">Cargando cliente...</p>
+          <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-100">Cargando vista avanzada del cliente...</p>
         </div>
       </div>
     );
   }
 
+  // Error state
   if (error || !client) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <AlertCircle className="w-8 h-8 text-red-600" />
-          </div>
-          <h2 className="text-xl font-semibold text-slate-900 mb-2">
-            {error || 'Cliente no encontrado'}
-          </h2>
-          <Button
-            onClick={() => router.push('/dashboard')}
-            className="mt-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Volver al dashboard
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-center p-8 bg-slate-900/60 backdrop-blur-lg rounded-xl border border-slate-700/50">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-slate-100 mb-2">Error</h2>
+          <p className="text-slate-400 mb-6">{error || 'Cliente no encontrado'}</p>
+          <Button onClick={() => router.back()} className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700">
+            <ArrowLeft className="w-4 h-4 mr-2" /> Volver
           </Button>
         </div>
       </div>
@@ -145,255 +401,526 @@ export default function ClientDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-950 text-slate-100">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push('/dashboard')}
-                className="text-slate-600 hover:text-slate-900"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Volver
-              </Button>
-              <div className="h-6 w-px bg-slate-300"></div>
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-slate-900/80 backdrop-blur-lg border-b border-slate-800 p-6"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              onClick={() => router.back()}
+              className="text-slate-400 hover:text-slate-100"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Volver
+            </Button>
+            <div className="h-8 w-px bg-slate-700" />
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
+                <Building className="w-6 h-6 text-white" />
+              </div>
               <div>
-                <h1 className="text-xl font-semibold text-slate-900">{client.nombre}</h1>
-                <p className="text-sm text-slate-500">Detalle del cliente</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                    Klowezone
+                  </span>
+                  <span className="text-xs text-slate-100 bg-slate-700 border border-slate-600 px-2 py-1 rounded-full">
+                    CRM Pro
+                  </span>
+                </div>
+                <h1 className="text-2xl font-bold text-slate-100 mt-1">{client.nombre}</h1>
+                <p className="text-slate-400">Vista avanzada del cliente</p>
               </div>
             </div>
-            <Badge className={`border ${getStatusColor(client.estado)}`}>
-              {client.estado}
-            </Badge>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="flex items-center gap-3">
+            <Button className="bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white">
+              <Plus className="w-4 h-4 mr-2" />
+              Nueva Propuesta
+            </Button>
+            <Button className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white">
+              <Send className="w-4 h-4 mr-2" />
+              Solicitar Pago
+            </Button>
+            <Button className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white">
+              <CalendarIcon className="w-4 h-4 mr-2" />
+              Agendar Reunión
+            </Button>
+            <Button
+              className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white"
+              onClick={() => triggerMilestoneNotification(
+                'Tarea Crítica Completada',
+                'Se ha completado una tarea crítica del proyecto. El cliente ha sido notificado automáticamente.'
+              )}
+            >
+              <Star className="w-4 h-4 mr-2" />
+              Marcar Hito
+            </Button>
+            <Button
+              className="bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 text-white"
+              onClick={() => generatePortalInvitation(clientId)}
+              disabled={generatingLink}
+            >
+              {generatingLink ? (
+                <div className="w-4 h-4 border-2 border-slate-400 border-t-slate-100 rounded-full animate-spin mr-2" />
+              ) : (
+                <User className="w-4 h-4 mr-2" />
+              )}
+              {generatingLink ? 'Generando...' : 'Portal del Cliente'}
+            </Button>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Client Info */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Client Card */}
+      <div className="p-6 space-y-6">
+        {/* Client Health Score */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <Card className="bg-slate-900/60 backdrop-blur-lg border-slate-700/50">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Award className="w-6 h-6 text-indigo-400" />
+                  <CardTitle className="text-slate-100">Client Health Score</CardTitle>
+                </div>
+                {clientHealthScore && (
+                  <div className={`px-4 py-2 rounded-full text-lg font-bold ${clientHealthScore.gradeColor}`}>
+                    {clientHealthScore.grade}
+                  </div>
+                )}
+              </div>
+              <CardDescription className="text-slate-400">
+                {clientHealthScore?.gradeDescription || 'Calculando calificación...'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {clientHealthScore ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-100">Puntuación General</span>
+                    <span className="text-2xl font-bold text-indigo-400">{clientHealthScore.score}/100</span>
+                  </div>
+                  <Progress value={clientHealthScore.score} className="h-3" />
+
+                  <div className="grid grid-cols-3 gap-4 mt-6">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-emerald-400">{clientHealthScore.breakdown.profitability}</div>
+                      <div className="text-sm text-slate-400">Rentabilidad</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-400">{clientHealthScore.breakdown.payments}</div>
+                      <div className="text-sm text-slate-400">Pagos</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-purple-400">{clientHealthScore.breakdown.projects}</div>
+                      <div className="text-sm text-slate-400">Proyectos</div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-slate-400">Calculando calificación del cliente...</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Portal Invitation Link */}
+        {portalLink && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
+            <Card className="bg-emerald-500/10 border-emerald-500/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-emerald-400">
+                  <User className="w-5 h-5" />
+                  Portal del Cliente Generado
+                </CardTitle>
+                <CardDescription className="text-emerald-300">
+                  Enlace de acceso exclusivo para {client?.nombre}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-3 p-4 bg-slate-800/50 rounded-lg">
+                  <input
+                    type="text"
+                    value={portalLink}
+                    readOnly
+                    className="flex-1 bg-transparent text-slate-100 border border-slate-600 rounded px-3 py-2 text-sm"
+                  />
+                  <Button
+                    onClick={() => navigator.clipboard.writeText(portalLink)}
+                    variant="outline"
+                    size="sm"
+                    className="border-emerald-500 text-emerald-400 hover:bg-emerald-500/20 hover:!text-slate-900"
+                  >
+                    Copiar
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-400 mt-2">
+                  Este enlace permite al cliente acceder a su portal personal para ver el progreso de sus proyectos.
+                </p>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Client Info & Financials */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Client Information */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
+              transition={{ delay: 0.2 }}
             >
-              <Card className="bg-white border-slate-200 shadow-sm">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                      <Building className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg text-slate-900">{client.nombre}</CardTitle>
-                      <CardDescription className="text-slate-600">Cliente registrado</CardDescription>
-                    </div>
-                  </div>
+              <Card className="bg-slate-900/60 backdrop-blur-lg border-slate-700/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-slate-100">
+                    <User className="w-5 h-5 text-indigo-400" />
+                    Información del Cliente
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Contact Info */}
-                  <div className="space-y-3">
-                    {client.email && (
-                      <div className="flex items-center space-x-3 text-sm">
-                        <Mail className="w-4 h-4 text-slate-400" />
-                        <span className="text-slate-700">{client.email}</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center gap-3">
+                      <Mail className="w-5 h-5 text-slate-400" />
+                      <div>
+                        <p className="text-sm text-slate-400">Email</p>
+                        <p className="text-slate-100">{client.email || 'No especificado'}</p>
                       </div>
-                    )}
-                    {client.telefono && (
-                      <div className="flex items-center space-x-3 text-sm">
-                        <Phone className="w-4 h-4 text-slate-400" />
-                        <span className="text-slate-700">{client.telefono}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Phone className="w-5 h-5 text-slate-400" />
+                      <div>
+                        <p className="text-sm text-slate-400">Teléfono</p>
+                        <p className="text-slate-100">{client.telefono || 'No especificado'}</p>
                       </div>
-                    )}
-                    <div className="flex items-center space-x-3 text-sm">
-                      <Calendar className="w-4 h-4 text-slate-400" />
-                      <span className="text-slate-700">
-                        Registrado {client.created_at ? new Date(client.created_at).toLocaleDateString('es-ES') : 'N/A'}
-                      </span>
                     </div>
                   </div>
-
-                  {/* Status */}
-                  <div className="pt-4 border-t border-slate-100">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-700">Estado</span>
-                      <Badge className={`border ${getStatusColor(client.estado)}`}>
-                        {client.estado}
-                      </Badge>
+                  {client.notas && (
+                    <div className="pt-4 border-t border-slate-700">
+                      <p className="text-sm text-slate-400 mb-2">Notas</p>
+                      <p className="text-slate-100">{client.notas}</p>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>
 
-            {/* Notes Card */}
-            {client.notas && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.1 }}
-              >
-                <Card className="bg-white border-slate-200 shadow-sm">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center">
-                      <FileText className="w-4 h-4 mr-2 text-slate-500" />
-                      Notas
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-slate-700 leading-relaxed">{client.notas}</p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-
-            {/* Quick Stats */}
+            {/* Financial Hub */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
+              transition={{ delay: 0.3 }}
             >
-              <Card className="bg-white border-slate-200 shadow-sm">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Estadísticas Rápidas</CardTitle>
+              <Card className="bg-slate-900/60 backdrop-blur-lg border-slate-700/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-slate-100">
+                    <BarChart3 className="w-5 h-5 text-indigo-400" />
+                    Financial Hub - Profitability Tracking
+                  </CardTitle>
+                  <CardDescription className="text-slate-400">
+                    Análisis de ingresos vs gastos del cliente
+                  </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">Proyectos totales</span>
-                    <span className="font-semibold text-slate-900">{projects.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">En progreso</span>
-                    <span className="font-semibold text-blue-600">
-                      {projects.filter(p => p.estado === 'En Progreso').length}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">Completados</span>
-                    <span className="font-semibold text-green-600">
-                      {projects.filter(p => p.estado === 'Completado').length}
-                    </span>
-                  </div>
+                <CardContent>
+                  {financials ? (
+                    <div className="space-y-6">
+                      {/* Financial Summary */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="text-center p-4 bg-slate-800/50 rounded-lg">
+                          <DollarSign className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+                          <div className="text-2xl font-bold text-emerald-400">
+                            ${financials.totalRevenue.toLocaleString()}
+                          </div>
+                          <div className="text-sm text-slate-400">Ingresos Totales</div>
+                        </div>
+                        <div className="text-center p-4 bg-slate-800/50 rounded-lg">
+                          <TrendingDown className="w-8 h-8 text-red-400 mx-auto mb-2" />
+                          <div className="text-2xl font-bold text-red-400">
+                            ${financials.totalExpenses.toLocaleString()}
+                          </div>
+                          <div className="text-sm text-slate-400">Gastos Totales</div>
+                        </div>
+                        <div className="text-center p-4 bg-slate-800/50 rounded-lg">
+                          <TrendingUp className="w-8 h-8 text-indigo-400 mx-auto mb-2" />
+                          <div className="text-2xl font-bold text-indigo-400">
+                            {financials.profitability}%
+                          </div>
+                          <div className="text-sm text-slate-400">Rentabilidad</div>
+                        </div>
+                      </div>
+
+                      {/* Monthly Chart Placeholder */}
+                      <div className="h-64 bg-slate-800/30 rounded-lg flex items-center justify-center">
+                        <div className="text-center">
+                          <LineChart className="w-12 h-12 text-slate-600 mx-auto mb-2" />
+                          <p className="text-slate-400">Gráfico de ingresos mensuales</p>
+                          <p className="text-xs text-slate-500">Implementación pendiente</p>
+                        </div>
+                      </div>
+
+                      {financials.pendingPayments > 0 && (
+                        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <AlertCircle className="w-5 h-5 text-amber-400" />
+                            <span className="text-amber-400 font-medium">Pagos Pendientes</span>
+                          </div>
+                          <p className="text-slate-100 mt-1">
+                            ${financials.pendingPayments.toLocaleString()} MXN pendientes de cobro
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <BarChart3 className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+                      <p className="text-slate-400">Cargando datos financieros...</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>
-          </div>
 
-          {/* Right Column - Projects */}
-          <div className="lg:col-span-2">
+            {/* Active Projects Mini Kanban */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="space-y-6"
+              transition={{ delay: 0.4 }}
             >
-              {/* Projects Header */}
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-slate-900">Proyectos</h2>
-                <Button className="bg-blue-600 hover:bg-blue-700">
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Nuevo Proyecto
-                </Button>
-              </div>
-
-              {/* Projects List */}
-              {projects.length === 0 ? (
-                <Card className="bg-white border-slate-200 shadow-sm">
-                  <CardContent className="py-12">
-                    <div className="text-center">
-                      <Target className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-slate-900 mb-2">
-                        No hay proyectos
-                      </h3>
-                      <p className="text-slate-600 mb-4">
-                        Este cliente aún no tiene proyectos asignados.
-                      </p>
-                      <Button className="bg-blue-600 hover:bg-blue-700">
-                        Crear primer proyecto
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="space-y-4">
-                  {projects.map((project, index) => {
-                    const progressInfo = getProgressInfo(project.estado);
-
-                    return (
-                      <motion.div
-                        key={project.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4, delay: 0.1 * index }}
-                      >
-                        <Card className="bg-white border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                          <CardContent className="p-6">
-                            <div className="flex items-start justify-between mb-4">
-                              <div className="flex-1">
-                                <h3 className="text-lg font-semibold text-slate-900 mb-1">
-                                  {project.nombre_proyecto}
-                                </h3>
-                                {project.descripcion && (
-                                  <p className="text-sm text-slate-600 mb-3">{project.descripcion}</p>
-                                )}
-                                <div className="flex items-center space-x-4 text-sm text-slate-500">
-                                  <span className="flex items-center">
-                                    <Clock className="w-4 h-4 mr-1" />
-                                    {project.fecha_entrega ? new Date(project.fecha_entrega).toLocaleDateString('es-ES') : 'Sin fecha'}
-                                  </span>
-                                  <span className="flex items-center">
-                                    {getPriorityIcon(project.prioridad)} {project.prioridad}
-                                  </span>
-                                </div>
-                              </div>
-                              <Badge className={`border ${
-                                project.estado === 'En Progreso' ? 'bg-blue-500/10 text-blue-700 border-blue-500/20' :
-                                project.estado === 'Planificación' ? 'bg-slate-500/10 text-slate-700 border-slate-500/20' :
-                                project.estado === 'Completado' ? 'bg-green-500/10 text-green-700 border-green-500/20' :
-                                'bg-slate-500/10 text-slate-700 border-slate-500/20'
-                              }`}>
+              <Card className="bg-slate-900/60 backdrop-blur-lg border-slate-700/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-slate-100">
+                    <Target className="w-5 h-5 text-indigo-400" />
+                    Proyectos Activos - Mini Kanban
+                  </CardTitle>
+                  <CardDescription className="text-slate-400">
+                    Vista rápida del progreso de proyectos del cliente
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {projects.length > 0 ? (
+                    <div className="space-y-3">
+                      {projects.slice(0, 3).map((project, index) => {
+                        const progressInfo = getProgressInfo(project.estado);
+                        return (
+                          <motion.div
+                            key={project.id}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                            className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/30"
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-medium text-slate-100">{project.nombre_proyecto}</h4>
+                              <Badge className={`text-xs ${progressInfo.bgColor}/20 text-${progressInfo.bgColor.split('-')[1]}-400`}>
                                 {project.estado}
                               </Badge>
                             </div>
-
-                            {/* Progress Bar */}
                             <div className="space-y-2">
-                              <div className="flex justify-between text-xs text-slate-500">
-                                <span>Progreso del proyecto</span>
-                                <span>{progressInfo.progress}% completado</span>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-slate-400">Progreso</span>
+                                <span className="text-slate-100">{progressInfo.progress}%</span>
                               </div>
-                              <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                                <motion.div
-                                  initial={{ width: 0 }}
-                                  animate={{ width: `${progressInfo.progress}%` }}
-                                  transition={{ duration: 1, delay: 0.5 + (0.1 * index), ease: "easeOut" }}
-                                  className={`h-2 rounded-full bg-gradient-to-r ${progressInfo.color}`}
-                                />
-                              </div>
+                              <Progress value={progressInfo.progress} className="h-2" />
                             </div>
+                          </motion.div>
+                        );
+                      })}
+                      {projects.length > 3 && (
+                        <Button variant="ghost" className="w-full text-slate-100 hover:bg-slate-800">
+                          Ver todos los proyectos ({projects.length})
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Target className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+                      <p className="text-slate-400">No hay proyectos activos</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
 
-                            {/* Actions */}
-                            <div className="flex justify-end mt-4 space-x-2">
-                              <Button variant="outline" size="sm" className="text-slate-600 border-slate-300">
-                                Ver detalles
-                              </Button>
-                              <Button variant="outline" size="sm" className="text-slate-600 border-slate-300">
-                                Editar
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
+          {/* Right Column - Documents & Activity */}
+          <div className="space-y-6">
+            {/* Document Vault */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+            >
+              <Card className="bg-slate-900/60 backdrop-blur-lg border-slate-700/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-slate-100">
+                    <Archive className="w-5 h-5 text-indigo-400" />
+                    Document Vault
+                  </CardTitle>
+                  <CardDescription className="text-slate-400">
+                    Contratos y documentos del cliente
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {documents.map((doc, index) => (
+                      <motion.div
+                        key={doc.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          {getDocumentIcon(doc.type)}
+                          <div>
+                            <p className="text-sm font-medium text-slate-100">{doc.name}</p>
+                            <p className="text-xs text-slate-400">
+                              {new Date(doc.created_at).toLocaleDateString('es-ES')}
+                              {doc.size && ` • ${(doc.size / 1024 / 1024).toFixed(1)} MB`}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {getDocumentStatusBadge(doc.status)}
+                          <Button variant="ghost" size="sm" className="text-slate-100 hover:bg-slate-800">
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </motion.div>
-                    );
-                  })}
-                </div>
-              )}
+                    ))}
+                    <Button className="w-full mt-4" variant="outline">
+                      <Upload className="w-4 h-4 mr-2" />
+                      Subir Documento
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Activity Timeline */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+            >
+              <Card className="bg-slate-900/60 backdrop-blur-lg border-slate-700/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-slate-100">
+                    <Activity className="w-5 h-5 text-indigo-400" />
+                    Timeline de Actividad
+                  </CardTitle>
+                  <CardDescription className="text-slate-400">
+                    Historial de interacciones con el cliente
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {activities.map((activity, index) => (
+                      <motion.div
+                        key={activity.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="flex gap-3"
+                      >
+                        <div className="flex-shrink-0 w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center">
+                          {activity.icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-100">{activity.title}</p>
+                          <p className="text-sm text-slate-400">{activity.description}</p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {new Date(activity.timestamp).toLocaleDateString('es-ES', {
+                              day: 'numeric',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Milestones History */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7 }}
+            >
+              <Card className="bg-slate-900/60 backdrop-blur-lg border-slate-700/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-slate-100">
+                    <Star className="w-5 h-5 text-indigo-400" />
+                    Historial de Hitos
+                  </CardTitle>
+                  <CardDescription className="text-slate-400">
+                    Tareas críticas completadas y notificaciones enviadas
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {milestones.length > 0 ? (
+                      milestones.map((milestone, index) => (
+                        <motion.div
+                          key={milestone.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                          className="flex items-start gap-3 p-3 bg-slate-800/30 rounded-lg border border-slate-700/30"
+                        >
+                          <div className="w-2 h-2 bg-emerald-400 rounded-full mt-2 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-slate-100 mb-1">{milestone.title}</h4>
+                            <p className="text-sm text-slate-400 mb-2">{milestone.description}</p>
+                            <div className="flex items-center gap-2">
+                              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs">
+                                ✓ Notificado
+                              </Badge>
+                              <span className="text-xs text-slate-500">
+                                {new Date(milestone.completed_at).toLocaleDateString('es-ES', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))
+                    ) : (
+                      <div className="text-center py-6">
+                        <Star className="w-8 h-8 text-slate-600 mx-auto mb-3" />
+                        <p className="text-slate-400 text-sm">No hay hitos completados aún</p>
+                        <p className="text-slate-500 text-xs mt-1">
+                          Los hitos aparecerán aquí cuando marques tareas críticas como completadas
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </motion.div>
           </div>
         </div>

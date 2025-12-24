@@ -347,3 +347,4 @@ Sugiere roles adicionales necesarios y posibles candidatos basados en experienci
 // Exportar instancia singleton
 export const aiProjectService = new AIProjectService()
 export type { AutoScheduleResponse, HealthReportResponse, TemplateResponse }
+

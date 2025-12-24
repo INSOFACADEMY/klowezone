@@ -320,3 +320,4 @@ export function GanttView({ projectId }: GanttViewProps) {
     </div>
   )
 }
+

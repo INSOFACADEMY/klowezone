@@ -13,3 +13,4 @@ export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
 
 // Server-side Supabase client (for API routes and server components)
 export const supabaseServer = createClient(supabaseUrl, supabaseAnonKey)
+
