@@ -1,0 +1,443 @@
+// Prisma schema for KloweZone Admin Panel
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ========================================
+// AUTH & RBAC SYSTEM
+// ========================================
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  password    String
+  firstName   String
+  lastName    String
+  avatar      String?
+  isActive    Boolean  @default(true)
+  isVerified  Boolean  @default(false)
+  roleId      String
+  lastLogin   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  role              Role              @relation(fields: [roleId], references: [id])
+  auditLogs         AuditLog[]
+  errorLogs         ErrorLog[]
+  incidentsAssigned Incident[] @relation("incidentAssignee")
+  incidentsReported Incident[] @relation("incidentReporter")
+  feedbackCreated   Feedback[] @relation("feedbackUser")
+  feedbackAssigned  Feedback[] @relation("feedbackAssignee")
+  metricDashboards  MetricDashboard[]
+  incidentComments  IncidentComment[]
+  feedbackComments  FeedbackComment[]
+  blogPosts         BlogPost[]
+  pages             Page[]
+  testimonials      Testimonial[]
+  mediaFiles        MediaFile[]
+  metricEvents      MetricEvent[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users       User[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  resource    String   // e.g., "users", "posts", "settings"
+  action      String   // e.g., "create", "read", "update", "delete"
+  description String?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String @id @default(cuid())
+  roleId       String
+  permissionId String
+
+  // Relations
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// ========================================
+// SYSTEM CONFIGURATION
+// ========================================
+
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   // Encrypted JSON
+  category  String   // "email", "ai", "storage", "system"
+  isSecret  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_config")
+}
+
+model EmailProvider {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  provider     String   // "smtp", "sendgrid", "resend"
+  config       String   // Encrypted JSON with credentials
+  isActive     Boolean  @default(false)
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("email_providers")
+}
+
+model AIProvider {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  provider     String   // "openai", "anthropic", "google"
+  model        String   // "gpt-4", "claude-3", etc.
+  config       String   // Encrypted JSON with API keys
+  isActive     Boolean  @default(false)
+  isDefault    Boolean  @default(false)
+  rateLimit    Int      @default(100) // requests per minute
+  monthlyLimit Int      @default(10000)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("ai_providers")
+}
+
+model StorageProvider {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  provider     String   // "s3", "r2", "local"
+  config       String   // Encrypted JSON with credentials
+  bucket       String
+  region       String?
+  isActive     Boolean  @default(false)
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("storage_providers")
+}
+
+// ========================================
+// CMS SYSTEM
+// ========================================
+
+model BlogPost {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  content     String   // Markdown content
+  excerpt     String?
+  coverImage  String?
+  status      PostStatus @default(DRAFT)
+  seoTitle    String?
+  seoDescription String?
+  tags        String[]  // Array of tags
+  authorId    String
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  author      User     @relation(fields: [authorId], references: [id])
+
+  @@map("blog_posts")
+}
+
+model Page {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  content     String   // HTML/Markdown content
+  status      PostStatus @default(DRAFT)
+  seoTitle    String?
+  seoDescription String?
+  authorId    String
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  author      User     @relation(fields: [authorId], references: [id])
+
+  @@map("pages")
+}
+
+model Testimonial {
+  id          String   @id @default(cuid())
+  name        String
+  position    String?
+  company     String?
+  content     String
+  avatar      String?
+  rating      Int      @default(5) // 1-5 stars
+  isActive    Boolean  @default(true)
+  authorId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  author      User     @relation(fields: [authorId], references: [id])
+
+  @@map("testimonials")
+}
+
+model MediaFile {
+  id          String   @id @default(cuid())
+  filename    String
+  originalName String
+  mimeType    String
+  size        Int
+  url         String
+  thumbnail   String?
+  alt         String?
+  tags        String[]  // Array of tags
+  folder      String    @default("general")
+  uploadedBy  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  uploader    User     @relation(fields: [uploadedBy], references: [id])
+
+  @@map("media_files")
+}
+
+// ========================================
+// METRICS & ANALYTICS
+// ========================================
+
+model MetricEvent {
+  id          String   @id @default(cuid())
+  eventName   String
+  eventData   Json     // Flexible JSON data
+  userId      String?
+  sessionId   String?
+  userAgent   String?
+  ipAddress   String?
+  referrer    String?
+  timestamp   DateTime @default(now())
+
+  // Relations
+  user        User?    @relation(fields: [userId], references: [id])
+
+  @@map("metric_events")
+}
+
+model MetricDashboard {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  config      Json     // Dashboard configuration
+  isPublic    Boolean  @default(false)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  creator     User     @relation(fields: [createdBy], references: [id])
+
+  @@map("metric_dashboards")
+}
+
+// ========================================
+// LOGGING SYSTEM
+// ========================================
+
+model ErrorLog {
+  id          String   @id @default(cuid())
+  level       LogLevel
+  message     String
+  stack       String?
+  url         String?
+  method      String?
+  statusCode  Int?
+  userId      String?
+  requestId   String   @unique
+  userAgent   String?
+  ipAddress   String?
+  timestamp   DateTime @default(now())
+
+  // Relations
+  user        User?    @relation(fields: [userId], references: [id])
+
+  @@map("error_logs")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String   // "create", "update", "delete"
+  resource    String   // "user", "post", "setting"
+  resourceId  String?
+  oldValues   Json?
+  newValues   Json?
+  userId      String
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime @default(now())
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model Incident {
+  id          String     @id @default(cuid())
+  title       String
+  description String
+  severity    IncidentSeverity
+  status      IncidentStatus @default(OPEN)
+  assignedTo  String?
+  reportedBy  String
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  assignee    User?     @relation("incidentAssignee", fields: [assignedTo], references: [id])
+  reporter    User      @relation("incidentReporter", fields: [reportedBy], references: [id])
+  comments    IncidentComment[]
+
+  @@map("incidents")
+}
+
+model IncidentComment {
+  id          String   @id @default(cuid())
+  content     String
+  incidentId  String
+  authorId    String
+  createdAt   DateTime @default(now())
+
+  // Relations
+  incident    Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  author      User     @relation(fields: [authorId], references: [id])
+
+  @@map("incident_comments")
+}
+
+// ========================================
+// FEEDBACK SYSTEM
+// ========================================
+
+model Feedback {
+  id          String   @id @default(cuid())
+  type        FeedbackType
+  priority    FeedbackPriority @default(MEDIUM)
+  title       String
+  description String
+  screenshot  String?
+  url         String?
+  userAgent   String?
+  userId      String?
+  status      FeedbackStatus @default(PENDING)
+  assignedTo  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User?    @relation("feedbackUser", fields: [userId], references: [id])
+  assignee    User?    @relation("feedbackAssignee", fields: [assignedTo], references: [id])
+  comments    FeedbackComment[]
+
+  @@map("feedback")
+}
+
+model FeedbackComment {
+  id          String   @id @default(cuid())
+  content     String
+  feedbackId  String
+  authorId    String
+  isInternal  Boolean  @default(false) // Only visible to admins
+  createdAt   DateTime @default(now())
+
+  // Relations
+  feedback    Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  author      User     @relation(fields: [authorId], references: [id])
+
+  @@map("feedback_comments")
+}
+
+// ========================================
+// ENUMS
+// ========================================
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+  FATAL
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  CLOSED
+}
+
+enum FeedbackType {
+  BUG
+  FEATURE_REQUEST
+  IMPROVEMENT
+  GENERAL
+}
+
+enum FeedbackPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum FeedbackStatus {
+  PENDING
+  REVIEWED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
