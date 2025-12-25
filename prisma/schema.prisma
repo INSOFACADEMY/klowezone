@@ -37,6 +37,7 @@ model User {
   incidentComments  IncidentComment[]
   feedbackComments  FeedbackComment[]
   blogPosts         BlogPost[]
+  automationWorkflows AutomationWorkflow[]
   pages             Page[]
   testimonials      Testimonial[]
   mediaFiles        MediaFile[]
@@ -440,4 +441,110 @@ enum FeedbackStatus {
   IN_PROGRESS
   RESOLVED
   CLOSED
+}
+
+// ========================================
+// AUTOMATION SYSTEM
+// ========================================
+
+enum TriggerType {
+  NEW_LEAD
+  PROJECT_STATUS_CHANGE
+  FEEDBACK_RECEIVED
+  CRITICAL_ERROR
+  USER_REGISTERED
+  PAYMENT_RECEIVED
+  DEADLINE_APPROACHING
+}
+
+enum ActionType {
+  SEND_EMAIL
+  CREATE_NOTIFICATION
+  LOG_TO_SLACK
+  UPDATE_RECORD
+  CREATE_TASK
+  RUN_AI_ANALYSIS
+  SEND_WEBHOOK
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  RETRYING
+}
+
+model AutomationWorkflow {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(false)
+  trigger     TriggerType
+  triggerConfig Json     // Configuration for the trigger (filters, conditions)
+  actions     AutomationAction[]
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  creator     User     @relation(fields: [createdBy], references: [id])
+  runs        AutomationRun[]
+
+  @@map("automation_workflows")
+}
+
+model AutomationAction {
+  id          String   @id @default(cuid())
+  workflowId  String
+  order       Int      // Execution order
+  type        ActionType
+  config      Json     // Action-specific configuration
+  delay       Int      @default(0) // Delay in seconds before execution
+  createdAt   DateTime @default(now())
+
+  // Relations
+  workflow    AutomationWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@map("automation_actions")
+}
+
+model AutomationRun {
+  id          String   @id @default(cuid())
+  workflowId  String
+  triggerData Json     // Data that triggered the automation
+  status      JobStatus @default(PENDING)
+  startedAt   DateTime?
+  completedAt DateTime?
+  error       String?
+  retryCount  Int      @default(0)
+  maxRetries  Int      @default(3)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  workflow    AutomationWorkflow @relation(fields: [workflowId], references: [id])
+  jobs        JobQueue[]
+
+  @@map("automation_runs")
+}
+
+model JobQueue {
+  id            String   @id @default(cuid())
+  runId         String
+  actionId      String
+  status        JobStatus @default(PENDING)
+  payload       Json     // Job execution data
+  priority      Int      @default(1) // 1=low, 5=high
+  scheduledFor  DateTime @default(now())
+  startedAt     DateTime?
+  completedAt   DateTime?
+  error         String?
+  retryCount    Int      @default(0)
+  maxRetries    Int      @default(3)
+  createdAt     DateTime @default(now())
+
+  // Relations
+  run           AutomationRun @relation(fields: [runId], references: [id])
+
+  @@map("job_queue")
 }

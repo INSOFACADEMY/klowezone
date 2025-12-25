@@ -545,3 +545,5 @@ async function testLocalConnection(config: any): Promise<{ success: boolean; mes
   // TODO: Implement actual local storage test
   return { success: true, message: 'Directorio local accesible' }
 }
+
+

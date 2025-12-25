@@ -52,7 +52,7 @@ export class EncryptionService {
    */
   encrypt(data: string): EncryptedData {
     const iv = crypto.randomBytes(IV_LENGTH)
-    const cipher = crypto.createCipher(ALGORITHM, this.masterKey)
+    const cipher = crypto.createCipherGCM(ALGORITHM, this.masterKey, iv)
 
     cipher.setAAD(Buffer.from('')) // Additional Authenticated Data
 
@@ -72,9 +72,9 @@ export class EncryptionService {
    * Decrypt data using AES-256-GCM
    */
   decrypt(encryptedData: EncryptedData): string {
-    const decipher = crypto.createDecipher(ALGORITHM, this.masterKey)
     const iv = Buffer.from(encryptedData.iv, 'hex')
     const tag = Buffer.from(encryptedData.tag, 'hex')
+    const decipher = crypto.createDecipherGCM(ALGORITHM, this.masterKey, iv)
 
     decipher.setAuthTag(tag)
     decipher.setAAD(Buffer.from(''))
@@ -136,4 +136,6 @@ export const validateMasterKey = (key: string): boolean => {
     return false
   }
 }
+
+
 

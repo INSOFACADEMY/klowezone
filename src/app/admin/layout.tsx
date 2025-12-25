@@ -2,6 +2,7 @@ import { ReactNode } from 'react'
 import { AdminSidebar } from '@/components/admin/admin-sidebar-simple'
 import { AdminTopbar } from '@/components/admin/admin-topbar-simple'
 import { AdminCommandPalette } from '@/components/admin/admin-command-palette-simple'
+import { JobProcessor } from '@/components/admin/job-processor'
 
 interface AdminLayoutProps {
   children: ReactNode
@@ -26,6 +27,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
       {/* Command Palette */}
       <AdminCommandPalette />
+
+      {/* Job Processor - Invisible background component */}
+      <JobProcessor />
     </div>
   )
 }

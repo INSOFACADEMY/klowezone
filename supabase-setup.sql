@@ -74,3 +74,5 @@ COMMENT ON COLUMN clientes.created_at IS 'Fecha de creación del registro';
 COMMENT ON COLUMN clientes.updated_at IS 'Fecha de última actualización';
 
 
+
+

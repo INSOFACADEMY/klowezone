@@ -15,3 +15,5 @@ export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
 export const supabaseServer = createClient(supabaseUrl, supabaseAnonKey)
 
 
+
+

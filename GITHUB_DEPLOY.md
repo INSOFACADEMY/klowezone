@@ -169,3 +169,5 @@ Vercel detectará automáticamente que es un proyecto Next.js.
 Recuerda configurar las variables de entorno en producción antes del despliegue.
 
 
+
+

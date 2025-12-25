@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { motion } from 'framer-motion'
 import {
   Users,
   FileText,
@@ -23,9 +24,6 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { getDashboardStats } from '@/lib/dashboard-service'
 import type { DashboardStats } from '@/lib/dashboard-service'
-  systemHealth: 98,
-  errorRate: 0.2
-}
 
 const mockAlerts = [
   {
@@ -83,12 +81,6 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     loadDashboardData()
-  }, [])
-        systemHealth: Math.max(95, Math.min(100, prev.systemHealth + (Math.random() - 0.5)))
-      }))
-    }, 30000) // Update every 30 seconds
-
-    return () => clearInterval(interval)
   }, [])
 
   const getAlertIcon = (type: string) => {
@@ -168,7 +160,7 @@ export default function AdminDashboard() {
             {stats.systemHealth}% Salud
           </Badge>
         </div>
-      </motion.div>
+      </div>
 
       {/* KPIs Grid */}
       <motion.div

@@ -1,6 +1,16 @@
-# Supabase Configuration
+# =============================================
+# KLOWEZONE ENVIRONMENT VARIABLES
+# =============================================
 # Copy this file to .env.local and fill in your actual values
 
+# =============================================
+# DATABASE CONFIGURATION
+# =============================================
+DATABASE_URL=postgresql://username:password@localhost:5432/klowezone
+
+# =============================================
+# SUPABASE CONFIGURATION
+# =============================================
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key-here
 
@@ -9,5 +19,39 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key-here
 # 2. Select your project
 # 3. Go to Settings > API
 # 4. Copy the URL and anon/public key
+
+# =============================================
+# SECURITY & ENCRYPTION
+# =============================================
+# Master key for AES-256-GCM encryption (64 characters hex)
+MASTER_KEY=your-64-character-hex-master-key-here
+
+# JWT Secret for authentication tokens
+JWT_SECRET=your-very-secure-jwt-secret-key-here
+
+# =============================================
+# EMAIL SERVICE (RESEND)
+# =============================================
+RESEND_API_KEY=your-resend-api-key-here
+
+# =============================================
+# AI SERVICE (OPENAI)
+# =============================================
+NEXT_PUBLIC_OPENAI_API_KEY=your-openai-api-key-here
+
+# =============================================
+# APPLICATION URL
+# =============================================
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# =============================================
+# DEVELOPMENT NOTES
+# =============================================
+# - Generate MASTER_KEY: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# - Keep JWT_SECRET secure and unique
+# - Use strong passwords for database
+# - Never commit .env.local to version control
+
+
 
 
