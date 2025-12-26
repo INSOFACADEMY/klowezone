@@ -3,6 +3,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,8 +22,49 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { createClient, insertTestClients } from "@/lib/clients";
 import { createProject, updateProject, deleteProject } from "@/lib/projects";
+import { WhatsAppIconButton } from "@/components/ui/whatsapp-button";
+
+// Zod schemas for form validation
+const clientSchema = z.object({
+  nombre: z.string().min(1, "El nombre es obligatorio"),
+  email: z.string().optional(),
+  telefono: z.string().optional(),
+  estado: z.enum(["Activo", "Inactivo", "Pendiente"]),
+  notas: z.string().optional(),
+  noTieneEmail: z.boolean(),
+  noTieneTelefono: z.boolean(),
+}).refine((data) => {
+  // If noTieneEmail is false, email must be provided and valid
+  if (!data.noTieneEmail) {
+    return data.email && data.email.length > 0 && /\S+@\S+\.\S+/.test(data.email);
+  }
+  return true;
+}, {
+  message: "El email es obligatorio y debe tener un formato válido",
+  path: ["email"],
+});
+
+const projectSchema = z.object({
+  cliente_id: z.string().min(1, "Debes seleccionar un cliente"),
+  nombre_proyecto: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
+  prioridad: z.enum(["Urgente", "Alta", "Media", "Baja"]),
+  estado: z.enum(["Planificación", "En Progreso", "Completado", "Pausado", "Cancelado"]),
+  fecha_entrega: z.string().optional(),
+  descripcion: z.string().optional(),
+}).refine((data) => {
+  // Validar que cliente_id no sea vacío después de trim
+  return data.cliente_id && data.cliente_id.trim().length > 0;
+}, {
+  message: "Debes seleccionar un cliente",
+  path: ["cliente_id"],
+});
+
+type ClientFormData = z.infer<typeof clientSchema>;
+type ProjectFormData = z.infer<typeof projectSchema>;
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -42,12 +86,34 @@ export default function DashboardPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
-  const [newClient, setNewClient] = useState({
-    nombre: '',
-    email: '',
-    telefono: '',
-    estado: 'Activo' as const,
-    notas: ''
+
+  // React Hook Form for client
+  const clientForm = useForm<ClientFormData>({
+    resolver: zodResolver(clientSchema),
+    mode: "onChange", // Enable real-time validation
+    defaultValues: {
+      nombre: '',
+      email: '',
+      telefono: '',
+      estado: 'Activo',
+      notas: '',
+      noTieneEmail: false,
+      noTieneTelefono: false
+    }
+  });
+
+  // React Hook Form for project
+  const projectForm = useForm<ProjectFormData>({
+    resolver: zodResolver(projectSchema),
+    mode: "onChange", // Enable real-time validation
+    defaultValues: {
+      cliente_id: '',
+      nombre_proyecto: '',
+      prioridad: 'Media',
+      estado: 'Planificación',
+      fecha_entrega: '',
+      descripcion: ''
+    }
   });
   const [newProject, setNewProject] = useState({
     cliente_id: '',
@@ -186,118 +252,88 @@ export default function DashboardPage() {
     }
   };
 
-  // Handle create client function
-  const handleCreateClient = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Debug logging for form values
+  const clientFormValues = clientForm.watch();
+  console.log("📋 Client form values:", clientFormValues);
+  console.log("📋 Client form errors:", clientForm.formState.errors);
+  console.log("📋 Client form isValid:", clientForm.formState.isValid);
 
-    // Validaciones robustas - NO permitir valores null o vacíos
-    const validationErrors: Record<string, string> = {};
+  const projectFormValues = projectForm.watch();
+  console.log("📋 Project form values:", projectFormValues);
+  console.log("📋 Project form errors:", projectForm.formState.errors);
+  console.log("📋 Project form isValid:", projectForm.formState.isValid);
 
-    const nombreTrimmed = newClient.nombre?.trim();
-    const emailTrimmed = newClient.email?.trim();
-
-    if (!nombreTrimmed || nombreTrimmed.length === 0) {
-      validationErrors.nombre = 'El nombre del cliente es obligatorio y no puede estar vacío';
-    }
-
-    if (!emailTrimmed || emailTrimmed.length === 0) {
-      validationErrors.email = 'El email del cliente es obligatorio y no puede estar vacío';
-    } else if (!/\S+@\S+\.\S+/.test(emailTrimmed)) {
-      validationErrors.email = 'El email debe tener un formato válido (ej: usuario@dominio.com)';
-    }
-
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return; // NO enviar a Supabase, mantener modal abierto
-    }
+  // Handle create client function with react-hook-form
+  const handleCreateClient = useCallback(async (data: ClientFormData) => {
+    console.log("🚀 Submitting client form with data:", data);
 
     setIsSubmitting(true);
-    setErrors({});
 
     try {
-      // Asegurar que enviamos datos limpios y no null
+      // Prepare client data for API
       const clientData = {
-        nombre: nombreTrimmed,
-        email: emailTrimmed,
-        telefono: newClient.telefono?.trim() && newClient.telefono.trim().length > 0 ? newClient.telefono.trim() : undefined,
-        estado: newClient.estado && newClient.estado.trim().length > 0 ? newClient.estado : 'Activo',
-        notas: newClient.notas?.trim() && newClient.notas.trim().length > 0 ? newClient.notas.trim() : undefined
+        nombre: data.nombre.trim(),
+        email: data.noTieneEmail ? 'na@klowezone.com' : (data.email?.trim() || undefined),
+        telefono: data.noTieneTelefono
+          ? '0000000000'
+          : (data.telefono?.trim() && data.telefono.trim().length > 0 ? data.telefono.trim() : undefined),
+        estado: data.estado || 'Activo',
+        notas: data.notas?.trim() && data.notas.trim().length > 0 ? data.notas.trim() : undefined
       };
+
+      console.log("📤 Sending client data to API:", clientData);
 
       await createClient(clientData);
 
-      setNewClient({
-        nombre: '',
-        email: '',
-        telefono: '',
-        estado: 'Activo',
-        notas: ''
-      });
+      // Reset form and close modal
+      clientForm.reset();
       setIsModalOpen(false);
       await loadData(); // Reload data
+
+      console.log("✅ Client created successfully");
     } catch (error) {
-      console.error('Error creating client:', error);
-      setErrors({ general: 'Error al crear el cliente. Verifica tu conexión e inténtalo de nuevo.' });
+      console.error('❌ Error creating client:', error);
+      // You could set form errors here if needed
+      clientForm.setError("root", {
+        message: 'Error al crear el cliente. Verifica tu conexión e inténtalo de nuevo.'
+      });
     } finally {
       setIsSubmitting(false);
     }
-  }, [loadData]);
+  }, [clientForm, loadData]);
 
-  // Handle create project function
-  const handleCreateProject = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Validaciones robustas para proyectos - NO permitir valores null
-    const validationErrors: Record<string, string> = {};
-
-    const clienteIdTrimmed = newProject.cliente_id?.trim();
-    const nombreProyectoTrimmed = newProject.nombre_proyecto?.trim();
-
-    if (!clienteIdTrimmed || clienteIdTrimmed.length === 0) {
-      validationErrors.cliente_id = 'Debes seleccionar un cliente para el proyecto';
-    }
-
-    if (!nombreProyectoTrimmed || nombreProyectoTrimmed.length === 0) {
-      validationErrors.nombre_proyecto = 'El nombre del proyecto es obligatorio y no puede estar vacío';
-    } else if (nombreProyectoTrimmed.length < 3) {
-      validationErrors.nombre_proyecto = 'El nombre del proyecto debe tener al menos 3 caracteres';
-    }
-
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return; // NO enviar a Supabase si hay errores
-    }
+  // Handle create project function with react-hook-form
+  const handleCreateProject = useCallback(async (data: ProjectFormData) => {
+    console.log("🚀 Submitting project form with data:", data);
 
     setIsSubmitting(true);
-    setErrors({});
 
     try {
       await createProject({
-        cliente_id: newProject.cliente_id,
-        nombre_proyecto: newProject.nombre_proyecto,
-        prioridad: newProject.prioridad,
-        fecha_entrega: newProject.fecha_entrega || undefined,
-        descripcion: newProject.descripcion || undefined,
-        estado: 'Planificación'
+        cliente_id: data.cliente_id,
+        nombre_proyecto: data.nombre_proyecto.trim(),
+        prioridad: data.prioridad,
+        estado: data.estado,
+        fecha_entrega: data.fecha_entrega || undefined,
+        descripcion: data.descripcion?.trim() || undefined
       });
 
-      setNewProject({
-        cliente_id: '',
-        nombre_proyecto: '',
-        prioridad: 'Media',
-        estado: 'Planificación',
-        fecha_entrega: '',
-        descripcion: ''
-      });
+      // Reset form and close modal
+      projectForm.reset();
       setIsProjectModalOpen(false);
       await loadData(); // Reload data
+
+      console.log("✅ Project created successfully");
     } catch (error) {
-      console.error('Error creating project:', error);
-      setErrors({ general: 'Error al crear el proyecto' });
+      console.error('❌ Error creating project:', error);
+      // Set form error
+      projectForm.setError("root", {
+        message: 'Error al crear el proyecto. Verifica tu conexión e inténtalo de nuevo.'
+      });
     } finally {
       setIsSubmitting(false);
     }
-  }, [loadData]);
+  }, [projectForm, loadData]);
 
   const handleInsertTestData = useCallback(async () => {
     setIsInsertingTestData(true);
@@ -687,6 +723,11 @@ export default function DashboardPage() {
                                   >
                                     {client.estado}
                                   </Badge>
+                                  <WhatsAppIconButton
+                                    telefono={client.telefono}
+                                    clientName={client.nombre}
+                                    templateKey="welcome"
+                                  />
                                   <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors" />
                                 </div>
                               </div>
@@ -740,11 +781,12 @@ export default function DashboardPage() {
                                   initial={{ opacity: 0, y: 20 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   transition={{ delay: 0.1 + (index * 0.1) }}
-                                  className={`bg-slate-800/50 backdrop-blur-sm rounded-xl p-4 border transition-all duration-200 ${
+                                  className={`bg-slate-800/50 backdrop-blur-sm rounded-xl p-4 border transition-all duration-200 cursor-pointer hover:bg-slate-800/70 ${
                                     isUrgentDeadline(project.fecha_entrega)
                                       ? 'border-amber-500/50 shadow-lg shadow-amber-500/10'
                                       : 'border-slate-700/50'
                                   }`}
+                                  onClick={() => router.push(`/dashboard/projects/${project.id}`)}
                                 >
                                   <div className="flex items-start justify-between mb-3">
                                     <div className="flex-1 min-w-0">
@@ -815,60 +857,168 @@ export default function DashboardPage() {
               Completa la información del cliente
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleCreateClient} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="nombre" className="text-slate-100">Nombre *</Label>
-              <Input
-                id="nombre"
-                value={newClient.nombre}
-                onChange={(e) => setNewClient(prev => ({ ...prev, nombre: e.target.value }))}
-                className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400"
-                placeholder="Nombre del cliente"
-              />
-              {errors.nombre && <p className="text-sm text-red-400 flex items-center"><AlertCircle className="w-4 h-4 mr-1" />{errors.nombre}</p>}
-            </div>
+          <Form {...clientForm}>
+            <form onSubmit={clientForm.handleSubmit(handleCreateClient)} className="space-y-4">
+            <FormField
+              control={clientForm.control}
+              name="nombre"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-100">Nombre *</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400"
+                      placeholder="Nombre del cliente"
+                    />
+                  </FormControl>
+                  <FormMessage className="flex items-center">
+                    <AlertCircle className="w-4 h-4 mr-1" />
+                  </FormMessage>
+                </FormItem>
+              )}
+            />
 
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-slate-100">Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                value={newClient.email}
-                onChange={(e) => setNewClient(prev => ({ ...prev, email: e.target.value }))}
-                className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400"
-                placeholder="cliente@email.com"
-              />
-              {errors.email && <p className="text-sm text-red-400 flex items-center"><AlertCircle className="w-4 h-4 mr-1" />{errors.email}</p>}
-            </div>
+            <FormField
+              control={clientForm.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-100">
+                    Email {!clientForm.watch("noTieneEmail") && '*'}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="email"
+                      disabled={clientForm.watch("noTieneEmail")}
+                      className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                      placeholder={clientForm.watch("noTieneEmail") ? "No requerido" : "cliente@email.com"}
+                    />
+                  </FormControl>
+                  <FormMessage className="flex items-center">
+                    <AlertCircle className="w-4 h-4 mr-1" />
+                  </FormMessage>
+                </FormItem>
+              )}
+            />
 
-            <div className="space-y-2">
-              <Label htmlFor="telefono" className="text-slate-100">Teléfono</Label>
-              <Input
-                id="telefono"
-                value={newClient.telefono}
-                onChange={(e) => setNewClient(prev => ({ ...prev, telefono: e.target.value }))}
-                className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400"
-                placeholder="+1234567890"
-              />
-            </div>
+            <FormField
+              control={clientForm.control}
+              name="noTieneEmail"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="no-tiene-email"
+                      checked={field.value}
+                      onCheckedChange={(checked) => {
+                        const isChecked = checked as boolean;
+                        field.onChange(isChecked);
+                        // When checkbox is checked, set email to default value
+                        if (isChecked) {
+                          clientForm.setValue('email', 'na@klowezone.com');
+                        } else {
+                          clientForm.setValue('email', '');
+                        }
+                      }}
+                    />
+                    <Label htmlFor="no-tiene-email" className="text-sm text-slate-300 cursor-pointer">
+                      No tiene correo electrónico
+                    </Label>
+                  </div>
+                </FormItem>
+              )}
+            />
 
-            <div className="space-y-2">
-              <Label htmlFor="estado" className="text-slate-100">Estado</Label>
-              <Select value={newClient.estado} onValueChange={(value: any) => setNewClient(prev => ({ ...prev, estado: value }))}>
-                <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-600">
-                  <SelectItem value="Activo" className="text-white hover:bg-slate-700">Activo</SelectItem>
-                  <SelectItem value="Pendiente" className="text-white hover:bg-slate-700">Pendiente</SelectItem>
-                  <SelectItem value="Inactivo" className="text-white hover:bg-slate-700">Inactivo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <FormField
+              control={clientForm.control}
+              name="telefono"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-100">Teléfono</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      disabled={clientForm.watch("noTieneTelefono")}
+                      className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                      placeholder={clientForm.watch("noTieneTelefono") ? "No requerido" : "+1234567890"}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
 
-            {errors.general && (
+            <FormField
+              control={clientForm.control}
+              name="noTieneTelefono"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="no-tiene-telefono"
+                      checked={field.value}
+                      onCheckedChange={(checked) => {
+                        const isChecked = checked as boolean;
+                        field.onChange(isChecked);
+                        // When checkbox is checked, set telefono to default value
+                        if (isChecked) {
+                          clientForm.setValue('telefono', '0000000000');
+                        } else {
+                          clientForm.setValue('telefono', '');
+                        }
+                      }}
+                    />
+                    <Label htmlFor="no-tiene-telefono" className="text-sm text-slate-300 cursor-pointer">
+                      No tiene teléfono
+                    </Label>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={clientForm.control}
+              name="estado"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-100">Estado</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent className="bg-slate-800 border-slate-600">
+                      <SelectItem value="Activo" className="text-white hover:bg-slate-700">Activo</SelectItem>
+                      <SelectItem value="Pendiente" className="text-white hover:bg-slate-700">Pendiente</SelectItem>
+                      <SelectItem value="Inactivo" className="text-white hover:bg-slate-700">Inactivo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={clientForm.control}
+              name="notas"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-100">Notas</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400"
+                      placeholder="Notas adicionales del cliente"
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {clientForm.formState.errors.root && (
               <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-                <p className="text-sm text-red-400">{errors.general}</p>
+                <p className="text-sm text-red-400">{clientForm.formState.errors.root.message}</p>
               </div>
             )}
 
@@ -883,13 +1033,14 @@ export default function DashboardPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={isSubmitting || !newClient.nombre.trim() || !newClient.email.trim()}
+                disabled={isSubmitting || !clientForm.formState.isValid}
                 className="flex-1 bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Creando...' : 'Crear Cliente'}
               </Button>
             </div>
           </form>
+        </Form>
         </DialogContent>
       </Dialog>
 
@@ -902,83 +1053,141 @@ export default function DashboardPage() {
               Asigna este proyecto a un cliente existente
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleCreateProject} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="cliente_id" className="text-slate-100">Cliente *</Label>
-              <Select value={newProject.cliente_id} onValueChange={(value) => setNewProject(prev => ({ ...prev, cliente_id: value }))}>
-                <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
-                  <SelectValue placeholder="Selecciona un cliente" />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-600">
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id!} className="text-white hover:bg-slate-700">
-                      {client.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.cliente_id && <p className="text-sm text-red-400 flex items-center"><AlertCircle className="w-4 h-4 mr-1" />{errors.cliente_id}</p>}
-            </div>
+          <Form {...projectForm}>
+            <form onSubmit={projectForm.handleSubmit(handleCreateProject)} className="space-y-4">
+            <FormField
+              control={projectForm.control}
+              name="cliente_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-100">Cliente *</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
+                        <SelectValue placeholder="Selecciona un cliente" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent className="bg-slate-800 border-slate-600">
+                      {clients.map((client) => (
+                        <SelectItem key={client.id} value={client.id!} className="text-white hover:bg-slate-700">
+                          {client.nombre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage className="flex items-center">
+                    <AlertCircle className="w-4 h-4 mr-1" />
+                  </FormMessage>
+                </FormItem>
+              )}
+            />
 
-            <div className="space-y-2">
-              <Label htmlFor="project_name" className="text-slate-100">Nombre del Proyecto *</Label>
-              <Input
-                id="project_name"
-                value={newProject.nombre_proyecto}
-                onChange={(e) => setNewProject(prev => ({ ...prev, nombre_proyecto: e.target.value }))}
-                className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400"
-                placeholder="Nombre del proyecto"
-              />
-              {errors.nombre_proyecto && <p className="text-sm text-red-400 flex items-center"><AlertCircle className="w-4 h-4 mr-1" />{errors.nombre_proyecto}</p>}
-            </div>
+            <FormField
+              control={projectForm.control}
+              name="nombre_proyecto"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-100">Nombre del Proyecto *</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400"
+                      placeholder="Nombre del proyecto"
+                    />
+                  </FormControl>
+                  <FormMessage className="flex items-center">
+                    <AlertCircle className="w-4 h-4 mr-1" />
+                  </FormMessage>
+                </FormItem>
+              )}
+            />
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="prioridad" className="text-slate-100">Prioridad</Label>
-                <Select value={newProject.prioridad} onValueChange={(value: any) => setNewProject(prev => ({ ...prev, prioridad: value }))}>
-                  <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-600">
-                    <SelectItem value="Urgente" className="text-red-400 hover:bg-slate-700">🔴 Urgente</SelectItem>
-                    <SelectItem value="Alta" className="text-orange-400 hover:bg-slate-700">🟠 Alta</SelectItem>
-                    <SelectItem value="Media" className="text-yellow-400 hover:bg-slate-700">🟡 Media</SelectItem>
-                    <SelectItem value="Baja" className="text-green-400 hover:bg-slate-700">🟢 Baja</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <FormField
+                control={projectForm.control}
+                name="prioridad"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-slate-100">Prioridad</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent className="bg-slate-800 border-slate-600">
+                        <SelectItem value="Urgente" className="text-red-400 hover:bg-slate-700">🔴 Urgente</SelectItem>
+                        <SelectItem value="Alta" className="text-orange-400 hover:bg-slate-700">🟠 Alta</SelectItem>
+                        <SelectItem value="Media" className="text-yellow-400 hover:bg-slate-700">🟡 Media</SelectItem>
+                        <SelectItem value="Baja" className="text-green-400 hover:bg-slate-700">🟢 Baja</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
 
-              <div className="space-y-2">
-                <Label htmlFor="estado" className="text-slate-100">Estado</Label>
-                <Select value={newProject.estado} onValueChange={(value: any) => setNewProject(prev => ({ ...prev, estado: value }))}>
-                  <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-600">
-                    <SelectItem value="Planificación" className="text-slate-100 hover:bg-slate-700">📋 Planificación</SelectItem>
-                    <SelectItem value="En Progreso" className="text-blue-400 hover:bg-slate-700">⚡ En Progreso</SelectItem>
-                    <SelectItem value="Completado" className="text-green-400 hover:bg-slate-700">✅ Completado</SelectItem>
-                    <SelectItem value="Pausado" className="text-yellow-400 hover:bg-slate-700">⏸️ Pausado</SelectItem>
-                    <SelectItem value="Cancelado" className="text-red-400 hover:bg-slate-700">❌ Cancelado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="fecha_entrega" className="text-slate-100">Fecha de Entrega</Label>
-              <Input
-                id="fecha_entrega"
-                type="date"
-                value={newProject.fecha_entrega}
-                onChange={(e) => setNewProject(prev => ({ ...prev, fecha_entrega: e.target.value }))}
-                className="bg-slate-800/50 border-slate-600 text-white"
+              <FormField
+                control={projectForm.control}
+                name="estado"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-slate-100">Estado</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent className="bg-slate-800 border-slate-600">
+                        <SelectItem value="Planificación" className="text-slate-100 hover:bg-slate-700">📋 Planificación</SelectItem>
+                        <SelectItem value="En Progreso" className="text-blue-400 hover:bg-slate-700">⚡ En Progreso</SelectItem>
+                        <SelectItem value="Completado" className="text-green-400 hover:bg-slate-700">✅ Completado</SelectItem>
+                        <SelectItem value="Pausado" className="text-yellow-400 hover:bg-slate-700">⏸️ Pausado</SelectItem>
+                        <SelectItem value="Cancelado" className="text-red-400 hover:bg-slate-700">❌ Cancelado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
               />
             </div>
 
-            {errors.general && (
+            <FormField
+              control={projectForm.control}
+              name="fecha_entrega"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-100">Fecha de Entrega</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="date"
+                      className="bg-slate-800/50 border-slate-600 text-white"
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={projectForm.control}
+              name="descripcion"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-100">Descripción</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400"
+                      placeholder="Descripción del proyecto (opcional)"
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {projectForm.formState.errors.root && (
               <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-                <p className="text-sm text-red-400">{errors.general}</p>
+                <p className="text-sm text-red-400">{projectForm.formState.errors.root.message}</p>
               </div>
             )}
 
@@ -993,13 +1202,14 @@ export default function DashboardPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={isSubmitting || !newProject.cliente_id.trim() || !newProject.nombre_proyecto.trim()}
+                disabled={isSubmitting || !projectForm.formState.isValid}
                 className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Creando...' : 'Crear Proyecto'}
               </Button>
             </div>
           </form>
+        </Form>
         </DialogContent>
       </Dialog>
     </div>

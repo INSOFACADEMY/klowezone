@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -9,8 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { getProjects, Project } from '@/lib/projects'
 import { getUserProfile, UserProfile } from '@/lib/user-profiles'
 import { supabase } from '@/lib/supabase'
-import { ProjectView } from '@/components/project/project-view'
-import { TeamManagementModal } from '@/components/project/team-management-modal'
 import {
   Briefcase,
   Plus,
@@ -23,16 +22,15 @@ import {
 } from 'lucide-react'
 
 export default function ProjectsPage() {
+  const router = useRouter()
   const [projects, setProjects] = useState<Project[]>([])
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([])
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [user, setUser] = useState<any>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [showTeamModal, setShowTeamModal] = useState(false)
 
   useEffect(() => {
     const loadData = async () => {
@@ -99,44 +97,6 @@ export default function ProjectsPage() {
     }
   }
 
-  if (selectedProject) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-white">
-        <div className="flex items-center justify-between p-6 border-b border-slate-700/50">
-          <div className="flex items-center gap-4">
-            <Button
-              onClick={() => setSelectedProject(null)}
-              variant="ghost"
-              className="text-slate-400 hover:text-white"
-            >
-              ← Volver a Proyectos
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold">{selectedProject.nombre_proyecto}</h1>
-              <p className="text-slate-400">Vista detallada del proyecto</p>
-            </div>
-          </div>
-
-          <Button
-            onClick={() => setShowTeamModal(true)}
-            variant="outline"
-            className="border-slate-600 text-slate-300 hover:bg-slate-800"
-          >
-            <Users className="w-4 h-4 mr-2" />
-            Gestionar Equipo
-          </Button>
-        </div>
-
-        <ProjectView projectId={selectedProject.id!} />
-
-        <TeamManagementModal
-          projectId={selectedProject.id!}
-          isOpen={showTeamModal}
-          onClose={() => setShowTeamModal(false)}
-        />
-      </div>
-    )
-  }
 
   if (loading) {
     return (
@@ -266,7 +226,7 @@ export default function ProjectsPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
-                onClick={() => setSelectedProject(project)}
+                onClick={() => router.push(`/dashboard/projects/${project.id}`)}
                 className="cursor-pointer"
               >
                 <Card className="bg-slate-900/60 backdrop-blur-lg border border-slate-700/50 hover:border-slate-600/50 transition-colors">

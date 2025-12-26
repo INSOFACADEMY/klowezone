@@ -17,6 +17,7 @@ model User {
   password    String
   firstName   String
   lastName    String
+  telefono    String?
   avatar      String?
   isActive    Boolean  @default(true)
   isVerified  Boolean  @default(false)
@@ -42,6 +43,13 @@ model User {
   testimonials      Testimonial[]
   mediaFiles        MediaFile[]
   metricEvents      MetricEvent[]
+  projectsAsClient   Project[] @relation("projectClient")
+  projectsAsOwner    Project[] @relation("projectOwner")
+  uploadedDocuments  ProjectDocument[]
+  createdExpenses    ProjectExpense[] @relation("expenseCreator")
+  approvedExpenses   ProjectExpense[] @relation("expenseApprover")
+  teamMemberships    ProjectTeamMember[] @relation("teamMember")
+  teamAssignments    ProjectTeamMember[] @relation("teamAssigner")
 
   @@map("users")
 }
@@ -547,4 +555,156 @@ model JobQueue {
   run           AutomationRun @relation(fields: [runId], references: [id])
 
   @@map("job_queue")
+}
+
+// ========================================
+// PROJECT MANAGEMENT SYSTEM
+// ========================================
+
+model Project {
+  id                   String   @id @default(cuid())
+  cliente_id           String
+  user_id              String
+  nombre_proyecto      String
+  descripcion          String?
+  estado               ProjectStatus @default(PLANIFICACION)
+  prioridad            Priority @default(MEDIA)
+  fecha_entrega        DateTime?
+  presupuesto_estimado Float?
+  precio_venta         Float?
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  // Relations
+  cliente           User     @relation("projectClient", fields: [cliente_id], references: [id])
+  owner             User     @relation("projectOwner", fields: [user_id], references: [id])
+  documents         ProjectDocument[]
+  activities        ProjectActivity[]
+  expenses          ProjectExpense[]
+  teamMembers       ProjectTeamMember[]
+
+  @@map("proyectos")
+}
+
+model ProjectDocument {
+  id            String   @id @default(cuid())
+  project_id    String
+  nombre        String
+  tipo          DocumentType
+  url           String
+  size          Int?
+  uploaded_by   String
+  created_at    DateTime @default(now())
+
+  // Relations
+  project       Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  uploader      User    @relation(fields: [uploaded_by], references: [id])
+
+  @@map("project_documents")
+}
+
+model ProjectActivity {
+  id            String   @id @default(cuid())
+  project_id    String
+  tipo          ActivityType
+  titulo        String
+  descripcion   String
+  created_at    DateTime @default(now())
+
+  // Relations
+  project       Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@map("project_activities")
+}
+
+model ProjectExpense {
+  id            String   @id @default(cuid())
+  project_id    String
+  descripcion   String
+  monto         Float
+  tipo          ExpenseType
+  fecha_gasto   DateTime
+  comprobante   String?  // URL del comprobante/receipt
+  aprobado_por  String?  // User ID who approved
+  created_by    String   // User ID who created
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  // Relations
+  project       Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  creador       User    @relation("expenseCreator", fields: [created_by], references: [id])
+  aprobador     User?   @relation("expenseApprover", fields: [aprobado_por], references: [id])
+
+  @@map("project_expenses")
+}
+
+model ProjectTeamMember {
+  id            String   @id @default(cuid())
+  project_id    String
+  user_id       String
+  rol           TeamRole
+  asignado_en   DateTime @default(now())
+  asignado_por  String   // User ID who assigned
+  horas_estimadas Int?   // Estimated hours for this project
+  tarifa_hora   Float?   // Hourly rate for this member
+  activo        Boolean  @default(true)
+
+  // Relations
+  project       Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  miembro       User    @relation("teamMember", fields: [user_id], references: [id])
+  asignador     User    @relation("teamAssigner", fields: [asignado_por], references: [id])
+
+  @@unique([project_id, user_id]) // Un usuario solo puede estar una vez por proyecto
+  @@map("project_team_members")
+}
+
+// Enums
+enum ProjectStatus {
+  PLANIFICACION
+  EN_PROGRESO
+  COMPLETADO
+  PAUSADO
+  CANCELADO
+}
+
+enum Priority {
+  BAJA
+  MEDIA
+  ALTA
+  URGENTE
+}
+
+enum DocumentType {
+  CONTRATO
+  PROPUESTA
+  FACTURA
+  OTRO
+}
+
+enum ActivityType {
+  EMAIL
+  TASK_UPDATE
+  PAYMENT
+  MEETING
+  DOCUMENT
+}
+
+enum ExpenseType {
+  MATERIALES
+  PERSONAL
+  TRANSPORTE
+  HERRAMIENTAS
+  MARKETING
+  LEGAL
+  OTROS
+}
+
+enum TeamRole {
+  PROJECT_MANAGER
+  DEVELOPER
+  DESIGNER
+  QA_TESTER
+  BUSINESS_ANALYST
+  DEVOPS
+  CONSULTANT
 }

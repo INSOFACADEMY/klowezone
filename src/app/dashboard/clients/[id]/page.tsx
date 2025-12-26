@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { supabase } from "@/lib/supabase";
 import { getClientById, Client } from "@/lib/clients";
 import { getProjectsByClient, Project } from "@/lib/projects";
+import { updateProject, deleteProject, updateProjectStatus, getProjectActivities } from "../actions";
 import {
   ArrowLeft,
   Mail,
@@ -98,6 +99,8 @@ export default function ClientDeepViewPage() {
   const [generatingLink, setGeneratingLink] = useState(false);
   const [milestones, setMilestones] = useState<any[]>([]);
   const [showMilestoneModal, setShowMilestoneModal] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   // Calculate Client Health Score
   const clientHealthScore = useMemo(() => {
@@ -116,7 +119,7 @@ export default function ClientDeepViewPage() {
     score += paymentScore;
 
     // Project completion rate (30 points)
-    const completedProjects = projects.filter(p => p.estado === 'Completado').length;
+    const completedProjects = projects.filter(p => p.estado === 'COMPLETADO').length;
     const completionRate = completedProjects / projects.length;
     const completionScore = completionRate * 30;
     score += completionScore;
@@ -161,9 +164,10 @@ export default function ClientDeepViewPage() {
       setError(null);
 
       // Load all data in parallel
-      const [clientData, projectsData] = await Promise.all([
+      const [clientData, projectsData, activitiesData] = await Promise.all([
         getClientById(clientId),
-        getProjectsByClient(clientId)
+        getProjectsByClient(clientId),
+        getProjectActivities(clientId)
       ]);
 
       if (!clientData) {
@@ -174,9 +178,20 @@ export default function ClientDeepViewPage() {
       setClient(clientData);
       setProjects(projectsData);
 
-      // Simulate loading additional data
+      // Load activities from database
+      if (activitiesData.success) {
+        setActivities(activitiesData.data.map(activity => ({
+          id: activity.id,
+          type: activity.tipo.toLowerCase() as ClientActivity['type'],
+          title: activity.titulo,
+          description: activity.descripcion,
+          timestamp: activity.created_at,
+          icon: getActivityIcon(activity.tipo)
+        })));
+      }
+
+      // Load documents and financials (keep simulated for now)
       await loadClientDocuments(clientId);
-      await loadClientActivities(clientId);
       await loadClientFinancials(clientId);
 
     } catch (err) {
@@ -285,11 +300,11 @@ export default function ClientDeepViewPage() {
   // Helper functions
   const getProgressInfo = (estado: string) => {
     switch (estado) {
-      case 'Planificación': return { progress: 25, color: 'from-slate-400 to-slate-500', bgColor: 'bg-slate-500' };
-      case 'En Progreso': return { progress: 65, color: 'from-indigo-400 to-indigo-600', bgColor: 'bg-indigo-500' };
-      case 'Completado': return { progress: 100, color: 'from-emerald-400 to-emerald-600', bgColor: 'bg-emerald-500' };
-      case 'Pausado': return { progress: 40, color: 'from-amber-400 to-amber-600', bgColor: 'bg-amber-500' };
-      case 'Cancelado': return { progress: 0, color: 'from-red-400 to-red-600', bgColor: 'bg-red-500' };
+      case 'PLANIFICACION': return { progress: 25, color: 'from-slate-400 to-slate-500', bgColor: 'bg-slate-500' };
+      case 'EN_PROGRESO': return { progress: 65, color: 'from-indigo-400 to-indigo-600', bgColor: 'bg-indigo-500' };
+      case 'COMPLETADO': return { progress: 100, color: 'from-emerald-400 to-emerald-600', bgColor: 'bg-emerald-500' };
+      case 'PAUSADO': return { progress: 40, color: 'from-amber-400 to-amber-600', bgColor: 'bg-amber-500' };
+      case 'CANCELADO': return { progress: 0, color: 'from-red-400 to-red-600', bgColor: 'bg-red-500' };
       default: return { progress: 0, color: 'from-slate-500 to-slate-600', bgColor: 'bg-slate-500' };
     }
   };
@@ -309,6 +324,17 @@ export default function ClientDeepViewPage() {
       case 'pendiente': return <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">Pendiente</Badge>;
       case 'expirado': return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">Expirado</Badge>;
       default: return <Badge className="bg-slate-500/20 text-slate-400 border-slate-500/30">{status}</Badge>;
+    }
+  };
+
+  const getActivityIcon = (tipo: string) => {
+    switch (tipo) {
+      case 'EMAIL': return <Mail className="w-4 h-4" />;
+      case 'PAYMENT': return <CreditCard className="w-4 h-4" />;
+      case 'TASK_UPDATE': return <CheckCircle className="w-4 h-4" />;
+      case 'MEETING': return <CalendarIcon className="w-4 h-4" />;
+      case 'DOCUMENT': return <FileText className="w-4 h-4" />;
+      default: return <Activity className="w-4 h-4" />;
     }
   };
 
@@ -338,6 +364,64 @@ export default function ClientDeepViewPage() {
       alert('Error al generar el enlace del portal');
     } finally {
       setGeneratingLink(false);
+    }
+  };
+
+  // Project management functions
+  const handleEditProject = (project: Project) => {
+    setEditingProject(project);
+    setShowEditModal(true);
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    if (!confirm('¿Estás seguro de que quieres eliminar este proyecto? Esta acción no se puede deshacer.')) {
+      return;
+    }
+
+    try {
+      const result = await deleteProject(projectId);
+      if (result.success) {
+        await loadClientData(); // Reload data
+        alert('Proyecto eliminado exitosamente');
+      } else {
+        alert(`Error al eliminar proyecto: ${result.error}`);
+      }
+    } catch (err) {
+      console.error('Error deleting project:', err);
+      alert('Error al eliminar el proyecto');
+    }
+  };
+
+  const handleUpdateProjectStatus = async (projectId: string, newStatus: string) => {
+    try {
+      const result = await updateProjectStatus(projectId, newStatus as any);
+      if (result.success) {
+        await loadClientData(); // Reload data
+      } else {
+        alert(`Error al actualizar estado: ${result.error}`);
+      }
+    } catch (err) {
+      console.error('Error updating project status:', err);
+      alert('Error al actualizar el estado del proyecto');
+    }
+  };
+
+  const handleSaveProject = async (updates: any) => {
+    if (!editingProject) return;
+
+    try {
+      const result = await updateProject(editingProject.id!, updates);
+      if (result.success) {
+        setShowEditModal(false);
+        setEditingProject(null);
+        await loadClientData(); // Reload data
+        alert('Proyecto actualizado exitosamente');
+      } else {
+        alert(`Error al actualizar proyecto: ${result.error}`);
+      }
+    } catch (err) {
+      console.error('Error saving project:', err);
+      alert('Error al guardar el proyecto');
     }
   };
 
@@ -728,9 +812,35 @@ export default function ClientDeepViewPage() {
                           >
                             <div className="flex items-center justify-between mb-2">
                               <h4 className="font-medium text-slate-100">{project.nombre_proyecto}</h4>
-                              <Badge className={`text-xs ${progressInfo.bgColor}/20 text-${progressInfo.bgColor.split('-')[1]}-400`}>
-                                {project.estado}
-                              </Badge>
+                              <div className="flex items-center gap-1">
+                                <select
+                                  value={project.estado}
+                                  onChange={(e) => handleUpdateProjectStatus(project.id!, e.target.value)}
+                                  className="text-xs bg-slate-700 border border-slate-600 rounded px-2 py-1 text-slate-100"
+                                >
+                                  <option value="PLANIFICACION">Planificación</option>
+                                  <option value="EN_PROGRESO">En Progreso</option>
+                                  <option value="COMPLETADO">Completado</option>
+                                  <option value="PAUSADO">Pausado</option>
+                                  <option value="CANCELADO">Cancelado</option>
+                                </select>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditProject(project)}
+                                  className="text-slate-100 hover:bg-slate-700 p-1 h-6 w-6"
+                                >
+                                  <Edit className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteProject(project.id!)}
+                                  className="text-red-400 hover:bg-red-500/20 p-1 h-6 w-6"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
                             </div>
                             <div className="space-y-2">
                               <div className="flex justify-between text-sm">
@@ -925,6 +1035,101 @@ export default function ClientDeepViewPage() {
           </div>
         </div>
       </div>
+
+      {/* Project Edit Modal */}
+      {showEditModal && editingProject && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-slate-100 mb-4">Editar Proyecto</h3>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target as HTMLFormElement);
+                const updates = {
+                  nombre_proyecto: formData.get('nombre_proyecto') as string,
+                  descripcion: formData.get('descripcion') as string,
+                  fecha_entrega: formData.get('fecha_entrega') as string || undefined,
+                  estado: formData.get('estado') as string
+                };
+                handleSaveProject(updates);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  Nombre del Proyecto
+                </label>
+                <input
+                  name="nombre_proyecto"
+                  defaultValue={editingProject.nombre_proyecto}
+                  className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-slate-100"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  Descripción
+                </label>
+                <textarea
+                  name="descripcion"
+                  defaultValue={editingProject.descripcion || ''}
+                  className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-slate-100 h-20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  Fecha de Entrega
+                </label>
+                <input
+                  name="fecha_entrega"
+                  type="date"
+                  defaultValue={editingProject.fecha_entrega ? new Date(editingProject.fecha_entrega).toISOString().split('T')[0] : ''}
+                  className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-slate-100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  Estado
+                </label>
+                <select
+                  name="estado"
+                  defaultValue={editingProject.estado}
+                  className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-slate-100"
+                >
+                  <option value="PLANIFICACION">Planificación</option>
+                  <option value="EN_PROGRESO">En Progreso</option>
+                  <option value="COMPLETADO">Completado</option>
+                  <option value="PAUSADO">Pausado</option>
+                  <option value="CANCELADO">Cancelado</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="submit"
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  Guardar Cambios
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingProject(null);
+                  }}
+                  variant="outline"
+                  className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
