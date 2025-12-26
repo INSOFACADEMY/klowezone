@@ -1,7 +1,6 @@
 import { defineConfig } from 'prisma/config'
 
 export default defineConfig({
-  database: {
-    url: process.env.DATABASE_URL
-  }
+  // Configuración para Turbopack compatibility
+  // Usando adapter para evitar binarios nativos
 })

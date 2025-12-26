@@ -56,6 +56,9 @@ export async function getWorkflows() {
         runs: {
           orderBy: { createdAt: 'desc' },
           take: 5
+        },
+        _count: {
+          select: { runs: true }
         }
       },
       orderBy: { updatedAt: 'desc' }
@@ -64,7 +67,7 @@ export async function getWorkflows() {
     return workflows
   } catch (error) {
     console.error('Error fetching workflows:', error)
-    return []
+    throw new Error(`Failed to fetch workflows: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
@@ -79,8 +82,8 @@ export async function createWorkflow(data: Omit<AutomationWorkflow, 'id' | 'crea
         triggerConfig: data.triggerConfig,
         createdBy: data.createdBy,
         actions: {
-          create: data.actions.map(action => ({
-            order: action.order,
+          create: data.actions.map((action, index) => ({
+            order: index,
             type: action.type,
             config: action.config,
             delay: action.delay
@@ -88,12 +91,16 @@ export async function createWorkflow(data: Omit<AutomationWorkflow, 'id' | 'crea
         }
       },
       include: {
-        actions: true
+        actions: true,
+        creator: {
+          select: { firstName: true, lastName: true }
+        },
+        runs: true
       }
     })
   } catch (error) {
     console.error('Error creating workflow:', error)
-    throw error
+    throw new Error(`Failed to create workflow: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
@@ -145,7 +152,7 @@ export async function deleteWorkflow(id: string) {
     })
   } catch (error) {
     console.error('Error deleting workflow:', error)
-    throw error
+    throw new Error(`Failed to delete workflow: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
@@ -157,7 +164,7 @@ export async function toggleWorkflow(id: string, isActive: boolean) {
     })
   } catch (error) {
     console.error('Error toggling workflow:', error)
-    throw error
+    throw new Error(`Failed to toggle workflow: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 

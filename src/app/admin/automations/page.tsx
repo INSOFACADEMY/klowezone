@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { Zap, Workflow, Bot, Plus, Play, Pause, Edit, Trash2, Clock, CheckCircle, XCircle } from 'lucide-react'
-import { getWorkflows, toggleWorkflow, deleteWorkflow, getTriggerDescription, getActionDescription } from '@/lib/automation-services'
+import { getWorkflows, toggleWorkflow, deleteWorkflow, createWorkflow } from './actions'
+import { getTriggerDescription, getActionDescription } from '@/lib/automation-services'
+import { WorkflowBuilder } from '@/components/automations/workflow-builder'
 
 interface AutomationWorkflow {
   id: string
@@ -37,7 +39,7 @@ interface AutomationWorkflow {
 export default function AdminAutomationsPage() {
   const [workflows, setWorkflows] = useState<AutomationWorkflow[]>([])
   const [loading, setLoading] = useState(true)
-  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [editingWorkflow, setEditingWorkflow] = useState<AutomationWorkflow | null>(null)
 
   useEffect(() => {
     loadWorkflows()
@@ -46,8 +48,12 @@ export default function AdminAutomationsPage() {
   const loadWorkflows = async () => {
     setLoading(true)
     try {
-      const data = await getWorkflows()
-      setWorkflows(data)
+      const result = await getWorkflows()
+      if (result.success) {
+        setWorkflows(result.data)
+      } else {
+        console.error('Error loading workflows:', result.error)
+      }
     } catch (error) {
       console.error('Error loading workflows:', error)
     } finally {
@@ -57,8 +63,12 @@ export default function AdminAutomationsPage() {
 
   const handleToggleWorkflow = async (id: string, isActive: boolean) => {
     try {
-      await toggleWorkflow(id, isActive)
-      await loadWorkflows()
+      const result = await toggleWorkflow(id, isActive)
+      if (result.success) {
+        await loadWorkflows()
+      } else {
+        console.error('Error toggling workflow:', result.error)
+      }
     } catch (error) {
       console.error('Error toggling workflow:', error)
     }
@@ -67,11 +77,33 @@ export default function AdminAutomationsPage() {
   const handleDeleteWorkflow = async (id: string) => {
     if (confirm('¿Estás seguro de que quieres eliminar este workflow?')) {
       try {
-        await deleteWorkflow(id)
-        await loadWorkflows()
+        const result = await deleteWorkflow(id)
+        if (result.success) {
+          await loadWorkflows()
+        } else {
+          console.error('Error deleting workflow:', result.error)
+        }
       } catch (error) {
         console.error('Error deleting workflow:', error)
       }
+    }
+  }
+
+  const handleCreateWorkflow = async (workflowData: {
+    name: string
+    description: string
+    trigger: string
+    actions: any[]
+  }) => {
+    try {
+      const result = await createWorkflow(workflowData)
+      if (result.success) {
+        await loadWorkflows()
+      } else {
+        console.error('Error creating workflow:', result.error)
+      }
+    } catch (error) {
+      console.error('Error creating workflow:', error)
     }
   }
 
@@ -113,13 +145,19 @@ export default function AdminAutomationsPage() {
             Configura workflows automáticos y procesos inteligentes
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateForm(true)}
-          className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Nuevo Workflow
-        </button>
+        <div className="flex items-center space-x-3">
+          <WorkflowBuilder onSave={handleCreateWorkflow} />
+          {editingWorkflow && (
+            <WorkflowBuilder
+              onSave={(data) => {
+                // TODO: Implement update workflow
+                console.log('Update workflow:', editingWorkflow.id, data)
+                setEditingWorkflow(null)
+              }}
+              trigger={editingWorkflow.trigger}
+            />
+          )}
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -232,7 +270,10 @@ export default function AdminAutomationsPage() {
                       >
                         {workflow.isActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                       </button>
-                      <button className="p-2 bg-slate-700 text-slate-300 rounded hover:bg-slate-600 hover:text-white transition-colors">
+                      <button
+                        onClick={() => setEditingWorkflow(workflow)}
+                        className="p-2 bg-slate-700 text-slate-300 rounded hover:bg-slate-600 hover:text-white transition-colors"
+                      >
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
