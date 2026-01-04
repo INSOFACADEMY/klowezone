@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react'
 import { Zap, Workflow, Bot, Plus, Play, Pause, Edit, Trash2, Clock, CheckCircle, XCircle } from 'lucide-react'
 import { getWorkflows, toggleWorkflow, deleteWorkflow, createWorkflow } from './actions'
-import { getTriggerDescription, getActionDescription } from '@/lib/automation-services'
+import { getTriggerDescription, getActionDescription } from '@/lib/automation-utils'
 import { WorkflowBuilder } from '@/components/automations/workflow-builder'
 
 interface AutomationWorkflow {
   id: string
   name: string
-  description?: string
+  description: string | null
   isActive: boolean
   trigger: string
   triggerConfig: any
@@ -40,6 +40,7 @@ export default function AdminAutomationsPage() {
   const [workflows, setWorkflows] = useState<AutomationWorkflow[]>([])
   const [loading, setLoading] = useState(true)
   const [editingWorkflow, setEditingWorkflow] = useState<AutomationWorkflow | null>(null)
+  const [showCreateForm, setShowCreateForm] = useState(false)
 
   useEffect(() => {
     loadWorkflows()
@@ -49,7 +50,7 @@ export default function AdminAutomationsPage() {
     setLoading(true)
     try {
       const result = await getWorkflows()
-      if (result.success) {
+      if (result.success && result.data) {
         setWorkflows(result.data)
       } else {
         console.error('Error loading workflows:', result.error)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { updateWorkflow, deleteWorkflow, toggleWorkflow } from '@/lib/automation-services'
+import { adminAuthMiddleware, hasAnyPermission } from '@/middleware/admin-auth'
 
 // PUT /api/admin/automations/[id] - Update workflow
 export async function PUT(
@@ -7,6 +8,22 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Authenticate and authorize
+    const authResult = await adminAuthMiddleware(request)
+    if (authResult instanceof NextResponse) {
+      return authResult
+    }
+
+    const user = (authResult as any).user
+
+    // Check permissions: need update access to automations/workflows
+    if (!hasAnyPermission(user, ['automations:update', 'workflows:update'])) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
     const workflow = await updateWorkflow(params.id, body)
     return NextResponse.json(workflow)
@@ -25,6 +42,22 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Authenticate and authorize
+    const authResult = await adminAuthMiddleware(request)
+    if (authResult instanceof NextResponse) {
+      return authResult
+    }
+
+    const user = (authResult as any).user
+
+    // Check permissions: need delete access to automations/workflows
+    if (!hasAnyPermission(user, ['automations:delete', 'workflows:delete'])) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
+    }
+
     await deleteWorkflow(params.id)
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -42,6 +75,22 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Authenticate and authorize
+    const authResult = await adminAuthMiddleware(request)
+    if (authResult instanceof NextResponse) {
+      return authResult
+    }
+
+    const user = (authResult as any).user
+
+    // Check permissions: need update access to automations/workflows
+    if (!hasAnyPermission(user, ['automations:update', 'workflows:update'])) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
     const { isActive } = body
 
@@ -62,6 +111,11 @@ export async function PATCH(
     )
   }
 }
+
+
+
+
+
 
 
 

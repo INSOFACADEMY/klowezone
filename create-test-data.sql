@@ -26,3 +26,8 @@ INSERT INTO project_activities (id, project_id, tipo, titulo, descripcion, creat
 ('activity-2', 'project-1', 'TASK_UPDATE', 'Wireframes aprobados', 'Los wireframes han sido aprobados por el cliente', NOW()),
 ('activity-3', 'project-3', 'TASK_UPDATE', 'Implementación finalizada', 'El sistema ERP está en producción', NOW());
 
+
+
+
+
+

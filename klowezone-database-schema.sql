@@ -3,6 +3,28 @@
 -- Ejecutar en el SQL Editor de Supabase Dashboard
 -- =====================================================
 
+-- Función helper para crear políticas si no existen
+CREATE OR REPLACE FUNCTION create_policy_if_not_exists(
+    policy_name TEXT,
+    table_name TEXT,
+    policy_sql TEXT
+) RETURNS void AS $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = table_name
+        AND policyname = policy_name
+    ) THEN
+        EXECUTE 'CREATE POLICY "' || policy_name || '" ON ' || table_name || ' ' || policy_sql;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- =====================================================
+-- MULTI-TENANT BASE TABLES - SCRIPT SEPARADO
+-- Ejecutar SOLO ESTA SECCIÓN si ya tienes la base de datos configurada
+-- =====================================================
+
 -- =====================================================
 -- TABLA: profiles (Perfiles de usuario básicos)
 -- =====================================================
@@ -23,17 +45,24 @@ CREATE INDEX IF NOT EXISTS idx_profiles_created_at ON profiles(created_at DESC);
 -- RLS para profiles
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
--- Política: Los usuarios solo pueden ver su propio perfil
-CREATE POLICY "Users can view own profile" ON profiles
-    FOR SELECT USING (auth.uid() = id);
+-- Políticas para profiles
+SELECT create_policy_if_not_exists(
+    'Users can view own profile',
+    'profiles',
+    'FOR SELECT USING (auth.uid() = id)'
+);
 
--- Política: Los usuarios solo pueden actualizar su propio perfil
-CREATE POLICY "Users can update own profile" ON profiles
-    FOR UPDATE USING (auth.uid() = id);
+SELECT create_policy_if_not_exists(
+    'Users can update own profile',
+    'profiles',
+    'FOR UPDATE USING (auth.uid() = id)'
+);
 
--- Política: Los usuarios pueden insertar su propio perfil durante el registro
-CREATE POLICY "Users can insert own profile" ON profiles
-    FOR INSERT WITH CHECK (auth.uid() = id);
+SELECT create_policy_if_not_exists(
+    'Users can insert own profile',
+    'profiles',
+    'FOR INSERT WITH CHECK (auth.uid() = id)'
+);
 
 -- =====================================================
 -- TABLA: user_profiles (Perfiles de negocio extendidos)
@@ -64,17 +93,24 @@ CREATE INDEX IF NOT EXISTS idx_user_profiles_created_at ON user_profiles(created
 -- RLS para user_profiles
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 
--- Política: Los usuarios solo pueden ver su propio perfil de negocio
-CREATE POLICY "Users can view own business profile" ON user_profiles
-    FOR SELECT USING (auth.uid() = id);
+-- Políticas para user_profiles
+SELECT create_policy_if_not_exists(
+    'Users can view own business profile',
+    'user_profiles',
+    'FOR SELECT USING (auth.uid() = id)'
+);
 
--- Política: Los usuarios solo pueden actualizar su propio perfil de negocio
-CREATE POLICY "Users can update own business profile" ON user_profiles
-    FOR UPDATE USING (auth.uid() = id);
+SELECT create_policy_if_not_exists(
+    'Users can update own business profile',
+    'user_profiles',
+    'FOR UPDATE USING (auth.uid() = id)'
+);
 
--- Política: Los usuarios pueden insertar su propio perfil de negocio
-CREATE POLICY "Users can insert own business profile" ON user_profiles
-    FOR INSERT WITH CHECK (auth.uid() = id);
+SELECT create_policy_if_not_exists(
+    'Users can insert own business profile',
+    'user_profiles',
+    'FOR INSERT WITH CHECK (auth.uid() = id)'
+);
 
 -- =====================================================
 -- TABLA: clientes (Gestión de clientes)
@@ -101,21 +137,30 @@ CREATE INDEX IF NOT EXISTS idx_clientes_created_at ON clientes(created_at DESC);
 -- RLS para clientes
 ALTER TABLE clientes ENABLE ROW LEVEL SECURITY;
 
--- Política: Los usuarios solo pueden ver sus propios clientes
-CREATE POLICY "Users can view own clients" ON clientes
-    FOR SELECT USING (auth.uid() = user_id);
+-- Políticas para clientes
+SELECT create_policy_if_not_exists(
+    'Users can view own clients',
+    'clientes',
+    'FOR SELECT USING (auth.uid() = user_id)'
+);
 
--- Política: Los usuarios solo pueden insertar clientes para sí mismos
-CREATE POLICY "Users can insert own clients" ON clientes
-    FOR INSERT WITH CHECK (auth.uid() = user_id);
+SELECT create_policy_if_not_exists(
+    'Users can insert own clients',
+    'clientes',
+    'FOR INSERT WITH CHECK (auth.uid() = user_id)'
+);
 
--- Política: Los usuarios solo pueden actualizar sus propios clientes
-CREATE POLICY "Users can update own clients" ON clientes
-    FOR UPDATE USING (auth.uid() = user_id);
+SELECT create_policy_if_not_exists(
+    'Users can update own clients',
+    'clientes',
+    'FOR UPDATE USING (auth.uid() = user_id)'
+);
 
--- Política: Los usuarios solo pueden eliminar sus propios clientes
-CREATE POLICY "Users can delete own clients" ON clientes
-    FOR DELETE USING (auth.uid() = user_id);
+SELECT create_policy_if_not_exists(
+    'Users can delete own clients',
+    'clientes',
+    'FOR DELETE USING (auth.uid() = user_id)'
+);
 
 -- =====================================================
 -- TABLA: proyectos (Gestión de proyectos)
@@ -146,21 +191,30 @@ CREATE INDEX IF NOT EXISTS idx_proyectos_created_at ON proyectos(created_at DESC
 -- RLS para proyectos
 ALTER TABLE proyectos ENABLE ROW LEVEL SECURITY;
 
--- Política: Los usuarios solo pueden ver sus propios proyectos
-CREATE POLICY "Users can view own projects" ON proyectos
-    FOR SELECT USING (auth.uid() = user_id);
+-- Políticas para proyectos
+SELECT create_policy_if_not_exists(
+    'Users can view own projects',
+    'proyectos',
+    'FOR SELECT USING (auth.uid() = user_id)'
+);
 
--- Política: Los usuarios solo pueden insertar proyectos para sí mismos
-CREATE POLICY "Users can insert own projects" ON proyectos
-    FOR INSERT WITH CHECK (auth.uid() = user_id);
+SELECT create_policy_if_not_exists(
+    'Users can insert own projects',
+    'proyectos',
+    'FOR INSERT WITH CHECK (auth.uid() = user_id)'
+);
 
--- Política: Los usuarios solo pueden actualizar sus propios proyectos
-CREATE POLICY "Users can update own projects" ON proyectos
-    FOR UPDATE USING (auth.uid() = user_id);
+SELECT create_policy_if_not_exists(
+    'Users can update own projects',
+    'proyectos',
+    'FOR UPDATE USING (auth.uid() = user_id)'
+);
 
--- Política: Los usuarios solo pueden eliminar sus propios proyectos
-CREATE POLICY "Users can delete own projects" ON proyectos
-    FOR DELETE USING (auth.uid() = user_id);
+SELECT create_policy_if_not_exists(
+    'Users can delete own projects',
+    'proyectos',
+    'FOR DELETE USING (auth.uid() = user_id)'
+);
 
 -- =====================================================
 -- FUNCIONES Y TRIGGERS
@@ -977,23 +1031,48 @@ CREATE TRIGGER update_invitaciones_proyecto_updated_at
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =====================================================
+-- MULTI-TENANT TABLES
+-- =====================================================
+
+-- ⚠️ IMPORTANTE: Las tablas multi-tenant se crean con un script separado
+-- Ejecuta el archivo "multi-tenant-setup.sql" para configurar multi-tenant
+-- NO ejecutes las políticas aquí si ya existen en tu base de datos
+
+-- =====================================================
 -- FIN DEL SCRIPT COMPLETO
 -- =====================================================
 
 -- Instrucciones de uso:
--- 1. Si ya tienes las tablas básicas creadas, ejecuta solo la sección "SCRIPT ADICIONAL: USER_PROFILES"
--- 2. Si es tu primera vez, ejecuta el script completo desde el inicio
--- 3. Ve a Supabase Dashboard > SQL Editor
--- 4. Pega el script y ejecuta
--- 5. Verifica que las tablas se crearon correctamente
--- 6. Las políticas RLS protegerán automáticamente los datos de cada usuario
+
+-- OPCIONES DE EJECUCIÓN:
+
+-- 🔄 PRIMERA VEZ (nada configurado):
+--    1. Ejecuta klowezone-database-schema.sql completo
+--    2. Después ejecuta multi-tenant-setup.sql
+
+-- 🔧 SI YA TIENES POLÍTICAS CREADAS (error "policy already exists"):
+--    1. Ejecuta fix-existing-policies.sql (elimina políticas existentes)
+--    2. Ejecuta klowezone-database-schema.sql completo
+--    3. Después ejecuta multi-tenant-setup.sql
+
+-- ⚡ SI YA TIENES TODO MENOS MULTI-TENANT:
+--    1. Solo ejecuta multi-tenant-setup.sql
+
+-- 📍 PASOS GENERALES:
+-- 1. Ve a Supabase Dashboard > SQL Editor
+-- 2. Pega el/los script(s) correspondiente(s) en orden
+-- 3. Ejecuta cada uno por separado
+-- 4. Verifica que no hay errores
+-- 5. Las políticas RLS protegerán automáticamente los datos
 --
 -- Próximos pasos después de ejecutar el SQL:
 -- 1. El onboarding se activará automáticamente para nuevos usuarios
 -- 2. Los usuarios existentes pueden acceder directamente al dashboard (onboarding opcional)
--- 3. Prueba el flujo completo: registro -> onboarding -> dashboard
+-- 3. Si vas a usar multi-tenant: ejecuta "multi-tenant-setup.sql"
+-- 4. Prueba el flujo completo: registro -> onboarding -> dashboard
 --
 -- NUEVAS FUNCIONALIDADES DISPONIBLES:
 -- - Gestión avanzada de proyectos con detalles técnicos
 -- - Sistema completo de tareas asignables
 -- - Control financiero y presupuestario por proyecto
+-- - Base multi-tenant preparada (opcional)

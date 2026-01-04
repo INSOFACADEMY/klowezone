@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, Settings, FileText, Users, Zap, TrendingUp, MessageSquare } from 'lucide-react'
+import { BarChart3, Settings, FileText, Users, Zap, TrendingUp, MessageSquare, Target } from 'lucide-react'
 
 const navigation = [
   {
@@ -29,6 +29,11 @@ const navigation = [
     name: 'Automatizaciones',
     href: '/admin/automations',
     icon: Zap
+  },
+  {
+    name: 'Campañas IA',
+    href: '/admin/ai-campaigns',
+    icon: Target
   },
   {
     name: 'Métricas',
@@ -82,6 +87,7 @@ export function AdminSidebar() {
     </div>
   )
 }
+
 
 
 

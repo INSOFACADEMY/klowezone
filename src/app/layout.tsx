@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Toaster } from "sonner"
 import { FloatingTimer } from "@/components/ui/floating-timer"
+import { CampaignTracker } from "@/components/auth/campaign-tracker"
 import "./globals.css";
 
 const inter = Inter({
@@ -25,6 +26,7 @@ export default function RootLayout({
         {children}
         <Toaster richColors position="top-right" />
         <FloatingTimer />
+        <CampaignTracker />
       </body>
     </html>
   );

@@ -3,6 +3,7 @@ import { AdminSidebar } from '@/components/admin/admin-sidebar-simple'
 import { AdminTopbar } from '@/components/admin/admin-topbar-simple'
 import { AdminCommandPalette } from '@/components/admin/admin-command-palette-simple'
 import { JobProcessor } from '@/components/admin/job-processor'
+import { NotificationToast } from '@/components/admin/notification-toast'
 
 interface AdminLayoutProps {
   children: ReactNode
@@ -30,6 +31,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
       {/* Job Processor - Invisible background component */}
       <JobProcessor />
+
+      {/* CGO Pulse Notifications */}
+      <NotificationToast />
     </div>
   )
 }

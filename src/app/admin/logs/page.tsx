@@ -1,7 +1,22 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { LoggingService, LogEntry } from '@/lib/logging-service'
+import { getLogs, getLogStats, clearOldLogs } from './actions'
+
+interface LogEntry {
+  id: string
+  timestamp: Date
+  level: 'ERROR' | 'WARNING' | 'INFO' | 'DEBUG'
+  message: string
+  userId?: string
+  userEmail?: string
+  category: string
+  metadata?: Record<string, any>
+  ipAddress?: string
+  userAgent?: string
+  requestId?: string
+  stackTrace?: string
+}
 
 export default function AdminLogsPage() {
   const [logs, setLogs] = useState<LogEntry[]>([])
@@ -26,8 +41,7 @@ export default function AdminLogsPage() {
 
   const loadLogs = async () => {
     try {
-      const loggingService = LoggingService.getInstance()
-      const { logs: fetchedLogs } = await loggingService.getLogs({
+      const fetchedLogs = await getLogs({
         level: filters.level !== 'all' ? filters.level : undefined,
         limit: filters.limit,
         offset: filters.offset
@@ -42,8 +56,7 @@ export default function AdminLogsPage() {
 
   const loadStats = async () => {
     try {
-      const loggingService = LoggingService.getInstance()
-      const statsData = await loggingService.getLogStats()
+      const statsData = await getLogStats()
       setStats({
         total: statsData.total,
         errors: statsData.errors,

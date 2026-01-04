@@ -123,7 +123,8 @@ export function generateWhatsAppLinkWithTemplate(
   const formattedPhone = formatPhoneNumber(telefono);
   if (!formattedPhone) return null;
 
-  const message = WHATSAPP_TEMPLATES[templateKey](clientName, ...params);
+  const message = (WHATSAPP_TEMPLATES[templateKey] as any)(clientName, ...params);
   return generateWhatsAppLink(formattedPhone, message);
 }
+
 

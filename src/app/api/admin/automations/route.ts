@@ -1,15 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getWorkflows, createWorkflow, updateWorkflow, deleteWorkflow, toggleWorkflow } from '@/lib/automation-services'
-import { auth } from '@/lib/auth'
+import { adminAuthMiddleware, hasAnyPermission } from '@/middleware/admin-auth'
 
 // GET /api/admin/automations - List all workflows
 export async function GET(request: NextRequest) {
   try {
-    // TODO: Add authentication check
-    // const session = await auth()
-    // if (!session) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    // }
+    // Authenticate and authorize
+    const authResult = await adminAuthMiddleware(request)
+    if (authResult instanceof NextResponse) {
+      return authResult
+    }
+
+    const user = (authResult as any).user
+
+    // Check permissions: need read access to automations/workflows
+    if (!hasAnyPermission(user, ['automations:read', 'workflows:read'])) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
+    }
 
     const workflows = await getWorkflows()
     return NextResponse.json(workflows)
@@ -25,11 +35,21 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/automations - Create new workflow
 export async function POST(request: NextRequest) {
   try {
-    // TODO: Add authentication check
-    // const session = await auth()
-    // if (!session) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    // }
+    // Authenticate and authorize
+    const authResult = await adminAuthMiddleware(request)
+    if (authResult instanceof NextResponse) {
+      return authResult
+    }
+
+    const user = (authResult as any).user
+
+    // Check permissions: need create access to automations/workflows
+    if (!hasAnyPermission(user, ['automations:create', 'workflows:create'])) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
+    }
 
     const body = await request.json()
 
@@ -61,6 +81,11 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+
+
+
+
 
 
 

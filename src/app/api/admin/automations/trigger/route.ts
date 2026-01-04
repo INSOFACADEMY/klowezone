@@ -1,9 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { triggerAutomation } from '@/lib/automation-services'
+import { adminAuthMiddleware, hasAnyPermission } from '@/middleware/admin-auth'
 
 // POST /api/admin/automations/trigger - Trigger automation manually or from external events
 export async function POST(request: NextRequest) {
   try {
+    // Authenticate and authorize
+    const authResult = await adminAuthMiddleware(request)
+    if (authResult instanceof NextResponse) {
+      return authResult
+    }
+
+    const user = (authResult as any).user
+
+    // Check permissions: need execute/trigger access to automations/workflows
+    if (!hasAnyPermission(user, ['automations:execute', 'automations:trigger', 'workflows:execute', 'workflows:trigger'])) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
     const { triggerType, triggerData } = body
 
@@ -45,6 +62,11 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+
+
+
+
 
 
 

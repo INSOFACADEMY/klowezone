@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
+import { getStoredCampaignId, clearStoredCampaignId } from "@/lib/campaign-utils";
+import { syncUserAfterSignup } from "./actions";
 import {
   ArrowLeft,
   Mail,
@@ -73,12 +75,20 @@ export default function SignupPage() {
     setErrors({});
 
     try {
+      // Recuperar campaign_id del localStorage antes del registro
+      const campaignId = getStoredCampaignId();
+
+      if (campaignId) {
+        console.log(`📊 CampaignTracker: Registrando usuario con campaign_id: ${campaignId}`);
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
           data: {
             full_name: formData.fullName,
+            meta_campaign_id: campaignId, // Incluir campaign_id en los metadatos
           }
         }
       });
@@ -90,6 +100,17 @@ export default function SignupPage() {
       }
 
       if (data.user) {
+        // Sincronizar usuario con Prisma (incluyendo campaign_id)
+        try {
+          await syncUserAfterSignup(data.user.id);
+        } catch (syncError) {
+          console.error('Error sincronizando usuario:', syncError);
+          // No fallar el registro por esto, pero loggear el error
+        }
+
+        // Limpiar campaign_id del localStorage después del registro exitoso
+        clearStoredCampaignId();
+
         setSuccess(true);
         // Redirect to dashboard after a short delay
         setTimeout(() => {
@@ -390,6 +411,7 @@ export default function SignupPage() {
     </div>
   );
 }
+
 
 
 

@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { Users, Search, UserPlus, Edit, Ban, CheckCircle } from 'lucide-react'
+import { fetchUsers, updateUserStatusAction, getUserDetails } from './actions'
+import { BackButton } from '@/components/admin/back-button'
 
 interface User {
   id: string
@@ -31,55 +33,49 @@ export default function AdminClientsPage() {
   const [users, setUsers] = useState<User[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [roleFilter, setRoleFilter] = useState('all')
-
-  // Mock users for now
-  useEffect(() => {
-    const mockUsers: User[] = [
-      {
-        id: '1',
-        email: 'admin@klowezone.com',
-        firstName: 'Admin',
-        lastName: 'User',
-        isActive: true,
-        isVerified: true,
-        role: { id: '1', name: 'SUPER_ADMIN' },
-        lastLogin: new Date(),
-        createdAt: new Date('2024-01-01')
-      },
-      {
-        id: '2',
-        email: 'cliente@klowezone.com',
-        firstName: 'Juan',
-        lastName: 'Pérez',
-        isActive: true,
-        isVerified: true,
-        role: { id: '2', name: 'CLIENT' },
-        lastLogin: new Date(Date.now() - 86400000), // 1 day ago
-        createdAt: new Date('2024-01-15')
-      }
-    ]
-    setUsers(mockUsers)
-    setTotal(mockUsers.length)
-  }, [])
+  const [editingUser, setEditingUser] = useState<User | null>(null)
 
   const loadUsers = async () => {
-    // For now, just reload mock data
-    setIsLoading(true)
-    setTimeout(() => setIsLoading(false), 1000)
+    try {
+      setIsLoading(true)
+      const result = await fetchUsers(page, 10)
+      setUsers(result.users)
+      setTotal(result.total)
+    } catch (error) {
+      console.error('Error loading users:', error)
+    } finally {
+      setIsLoading(false)
+    }
   }
+
+  useEffect(() => {
+    loadUsers()
+  }, [page])
 
   const handleStatusChange = async (userId: string, isActive: boolean) => {
     try {
-      await updateUserStatus(userId, isActive)
+      await updateUserStatusAction(userId, isActive)
       await loadUsers() // Reload users
     } catch (error) {
       console.error('Error updating user status:', error)
     }
   }
+
+  const handleEditUser = async (userId: string) => {
+    try {
+      const userDetails = await getUserDetails(userId)
+      if (userDetails) {
+        setEditingUser(userDetails as User)
+      }
+    } catch (error) {
+      console.error('Error fetching user details:', error)
+    }
+  }
+
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = searchTerm === '' ||
@@ -118,11 +114,14 @@ export default function AdminClientsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Gestión de Usuarios</h1>
-          <p className="text-slate-400 mt-1">
-            Administra usuarios, roles y permisos del sistema
-          </p>
+        <div className="flex items-center space-x-4">
+          <BackButton />
+          <div>
+            <h1 className="text-3xl font-bold text-white">Gestión de Usuarios</h1>
+            <p className="text-slate-400 mt-1">
+              Administra usuarios, roles y permisos del sistema
+            </p>
+          </div>
         </div>
         <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-emerald-600 text-white rounded-lg hover:from-blue-700 hover:to-emerald-700 transition-colors">
           <UserPlus className="w-4 h-4 inline mr-2" />
@@ -238,7 +237,10 @@ export default function AdminClientsPage() {
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center space-x-2">
-                        <button className="p-2 bg-slate-700 text-slate-300 rounded hover:bg-slate-600 hover:text-white transition-colors">
+                        <button
+                          onClick={() => handleEditUser(user.id)}
+                          className="p-2 bg-slate-700 text-slate-300 rounded hover:bg-slate-600 hover:text-white transition-colors"
+                        >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
@@ -284,6 +286,71 @@ export default function AdminClientsPage() {
           </div>
         </div>
       </div>
+
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-white">Editar Usuario</h2>
+              <button
+                onClick={() => setEditingUser(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Nombre Completo
+                </label>
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={editingUser.firstName}
+                    onChange={(e) => setEditingUser({...editingUser, firstName: e.target.value})}
+                    className="flex-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+                    placeholder="Nombre"
+                  />
+                  <input
+                    type="text"
+                    value={editingUser.lastName}
+                    onChange={(e) => setEditingUser({...editingUser, lastName: e.target.value})}
+                    className="flex-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+                    placeholder="Apellido"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={editingUser.email}
+                  onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white"
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-4">
+                <button
+                  onClick={() => setEditingUser(null)}
+                  className="px-4 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 hover:text-white transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-emerald-600 text-white rounded-lg hover:from-blue-700 hover:to-emerald-700 transition-colors">
+                  Guardar Cambios
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

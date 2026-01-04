@@ -22,8 +22,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { getDashboardStats } from '@/lib/dashboard-service'
-import type { DashboardStats } from '@/lib/dashboard-service'
+import { fetchDashboardStats } from './actions'
+import { BackButton } from '@/components/admin/back-button'
+
+interface DashboardStats {
+  totalUsers: number
+  totalPosts: number
+  totalRevenue: number
+  activeProjects: number
+  totalClients: number
+  systemHealth: number
+  recentActivity: any[]
+  topProjects: any[]
+}
 
 const mockAlerts = [
   {
@@ -69,7 +80,7 @@ export default function AdminDashboard() {
     try {
       setIsLoading(true)
       setError(null)
-      const data = await getDashboardStats()
+      const data = await fetchDashboardStats()
       setStats(data)
     } catch (err) {
       console.error('Error loading dashboard data:', err)
@@ -144,11 +155,14 @@ export default function AdminDashboard() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Dashboard Administrativo</h1>
-          <p className="text-slate-400 mt-1">
-            Bienvenido al panel de control de KloweZone
-          </p>
+        <div className="flex items-center space-x-4">
+          <BackButton />
+          <div>
+            <h1 className="text-3xl font-bold text-white">Dashboard Administrativo</h1>
+            <p className="text-slate-400 mt-1">
+              Bienvenido al panel de control de KloweZone
+            </p>
+          </div>
         </div>
         <div className="flex items-center space-x-3">
           <Badge variant="outline" className="border-emerald-500/50 text-emerald-400">
@@ -175,7 +189,7 @@ export default function AdminDashboard() {
             <Users className="h-4 w-4 text-slate-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">{stats.totalUsers.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-white">{stats.totalUsers}</div>
             <p className="text-xs text-emerald-400 flex items-center mt-1">
               <TrendingUp className="w-3 h-3 mr-1" />
               +12% vs mes anterior
@@ -203,7 +217,7 @@ export default function AdminDashboard() {
             <DollarSign className="h-4 w-4 text-slate-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-white">${stats.totalRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-white">${stats.totalRevenue}</div>
             <p className="text-xs text-emerald-400 flex items-center mt-1">
               <TrendingUp className="w-3 h-3 mr-1" />
               +8% vs mes anterior
@@ -243,7 +257,7 @@ export default function AdminDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {healthChecks.map((service, index) => (
+                {mockHealthChecks.map((service, index) => (
                   <div key={service.service} className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className={`w-2 h-2 rounded-full ${
@@ -318,8 +332,8 @@ export default function AdminDashboard() {
                 Alertas Recientes
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {alerts.map((alert) => (
+              <CardContent className="space-y-3">
+              {mockAlerts.map((alert) => (
                 <div
                   key={alert.id}
                   className={`p-3 rounded-lg border-l-4 bg-slate-800/50 border ${getAlertColor(alert.priority)}`}

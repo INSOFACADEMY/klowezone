@@ -1,12 +1,18 @@
+import { WeeklyGrowthReport } from '@/components/admin/weekly-growth-report'
+import { BackButton } from '@/components/admin/back-button'
+
 export default function AdminMetricsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Métricas y Analytics</h1>
-          <p className="text-slate-400 mt-1">
-            Monitorea el rendimiento y analiza datos del sistema
-          </p>
+        <div className="flex items-center space-x-4">
+          <BackButton />
+          <div>
+            <h1 className="text-3xl font-bold text-white">Métricas y Analytics</h1>
+            <p className="text-slate-400 mt-1">
+              Monitorea el rendimiento y analiza datos del sistema
+            </p>
+          </div>
         </div>
         <div className="flex items-center space-x-3">
           <select className="px-3 py-2 bg-slate-800 border border-slate-600 rounded text-white">
@@ -78,6 +84,9 @@ export default function AdminMetricsPage() {
           </div>
         </div>
       </div>
+
+      {/* Weekly Growth Report */}
+      <WeeklyGrowthReport />
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

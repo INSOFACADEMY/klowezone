@@ -12,22 +12,24 @@ datasource db {
 // ========================================
 
 model User {
-  id          String   @id @default(cuid())
-  email       String   @unique
-  password    String
-  firstName   String
-  lastName    String
-  telefono    String?
-  avatar      String?
-  isActive    Boolean  @default(true)
-  isVerified  Boolean  @default(false)
-  roleId      String
-  lastLogin   DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String   @id @default(cuid())
+  email           String   @unique
+  password        String
+  firstName       String
+  lastName        String
+  telefono        String?
+  avatar          String?
+  isActive        Boolean  @default(true)
+  isVerified      Boolean  @default(false)
+  roleId          String
+  metaCampaignId  String?  // ID de campaña de Meta que atrajo a este cliente
+  lastLogin       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relations
   role              Role              @relation(fields: [roleId], references: [id])
+  organizationMemberships OrganizationMember[]
   auditLogs         AuditLog[]
   errorLogs         ErrorLog[]
   incidentsAssigned Incident[] @relation("incidentAssignee")
@@ -52,6 +54,48 @@ model User {
   teamAssignments    ProjectTeamMember[] @relation("teamAssigner")
 
   @@map("users")
+}
+
+// ========================================
+// MULTI-TENANT ORGANIZATIONS
+// ========================================
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  logo        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  members     OrganizationMember[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  role           OrgRole  @default(MEMBER)
+  joinedAt       DateTime @default(now())
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId]) // Un usuario solo puede estar una vez por organización
+  @@map("organization_members")
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
 }
 
 model Role {
@@ -697,6 +741,23 @@ enum ExpenseType {
   MARKETING
   LEGAL
   OTROS
+}
+
+// ========================================
+// AI CAMPAIGN LOGGING SYSTEM
+// ========================================
+
+model AiCampaignLog {
+  id               String   @id @default(cuid())
+  campaignId       String   @unique // ID de la campaña en Meta
+  name             String   // Nombre de la campaña
+  spend            Float    @default(0) // Presupuesto gastado en la campaña
+  leadsCount       Int      @default(0) // Número de leads generados
+  revenueGenerated Float    @default(0) // Ingresos generados por la campaña
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("ai_campaign_logs")
 }
 
 enum TeamRole {

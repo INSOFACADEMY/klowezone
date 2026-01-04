@@ -61,8 +61,8 @@ createdb klowezone
 
 # Variables de entorno (.env)
 DATABASE_URL="postgresql://username:password@localhost:5432/klowezone"
-MASTER_KEY="your-32-byte-hex-key"  # Generar con: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-JWT_SECRET="your-secure-jwt-secret-key-here"
+MASTER_KEY="4f73a2ab9ed8ec4e2cd61c516045611a82c03446dc8c16175b858b32392e7e65"
+JWT_SECRET="zTHaZtwCEWvRc8Y1qaZDxlLOGkBBkod+1PAyWkaDtLnC/lOgRwFT9em6GB3lF426oJ1KIv5/XablcPnv/FD6TQ=="
 ```
 
 ### 3. **Inicializar Prisma**

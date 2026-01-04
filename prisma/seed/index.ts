@@ -210,16 +210,19 @@ async function main() {
     ]
 
     for (const testimonial of testimonials) {
-      await prisma.testimonial.upsert({
+      // Check if testimonial already exists
+      const existing = await prisma.testimonial.findFirst({
         where: {
-          name_company: {
-            name: testimonial.name,
-            company: testimonial.company || ''
-          }
-        },
-        update: {},
-        create: testimonial,
+          name: testimonial.name,
+          company: testimonial.company || ''
+        }
       })
+
+      if (!existing) {
+        await prisma.testimonial.create({
+          data: testimonial
+        })
+      }
     }
   }
 
@@ -296,6 +299,7 @@ main()
   .finally(async () => {
     await prisma.$disconnect()
   })
+
 
 
 
