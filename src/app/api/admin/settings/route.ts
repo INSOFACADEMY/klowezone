@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminAuthMiddleware } from '@/middleware/admin-auth'
+import { getOrgContext, TenantError } from '@/lib/tenant/getOrgContext'
 import { prisma } from '@/lib/prisma'
 import { encrypt, decrypt } from '@/lib/encryption'
 
@@ -11,8 +12,23 @@ export async function GET(request: NextRequest) {
       return authResult
     }
 
-    // Get all system configuration settings
+    // Get organization context (required for multi-tenant)
+    let orgContext
+    try {
+      orgContext = await getOrgContext(request)
+    } catch (error) {
+      if (error instanceof TenantError) {
+        return NextResponse.json(
+          { error: `Organization context required: ${error.message}` },
+          { status: 400 }
+        )
+      }
+      throw error
+    }
+
+    // Get system configuration settings for the organization
     const settings = await prisma.systemConfig.findMany({
+      where: { organizationId: orgContext.orgId },
       orderBy: { createdAt: 'desc' }
     })
 
@@ -50,6 +66,20 @@ export async function POST(request: NextRequest) {
       return authResult
     }
 
+    // Get organization context (required for multi-tenant)
+    let orgContext
+    try {
+      orgContext = await getOrgContext(request)
+    } catch (error) {
+      if (error instanceof TenantError) {
+        return NextResponse.json(
+          { error: `Organization context required: ${error.message}` },
+          { status: 400 }
+        )
+      }
+      throw error
+    }
+
     const body = await request.json()
     const { key, value, isSecret = false, category, description } = body
 
@@ -63,9 +93,14 @@ export async function POST(request: NextRequest) {
     // Encrypt value if it's marked as secret
     const processedValue = isSecret ? encrypt(value) : value
 
-    // Create or update setting
+    // Create or update setting for the organization
     const setting = await prisma.systemConfig.upsert({
-      where: { key },
+      where: {
+        key_organizationId: {
+          key: key,
+          organizationId: orgContext.orgId
+        }
+      },
       update: {
         value: processedValue,
         isSecret,
@@ -78,7 +113,8 @@ export async function POST(request: NextRequest) {
         value: processedValue,
         isSecret,
         category,
-        description
+        description,
+        organizationId: orgContext.orgId
       }
     })
 
@@ -111,6 +147,20 @@ export async function DELETE(request: NextRequest) {
       return authResult
     }
 
+    // Get organization context (required for multi-tenant)
+    let orgContext
+    try {
+      orgContext = await getOrgContext(request)
+    } catch (error) {
+      if (error instanceof TenantError) {
+        return NextResponse.json(
+          { error: `Organization context required: ${error.message}` },
+          { status: 400 }
+        )
+      }
+      throw error
+    }
+
     const { searchParams } = new URL(request.url)
     const key = searchParams.get('key')
 
@@ -121,9 +171,14 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    // Delete setting
+    // Delete setting from the organization
     await prisma.systemConfig.delete({
-      where: { key }
+      where: {
+        key_organizationId: {
+          key: key,
+          organizationId: orgContext.orgId
+        }
+      }
     })
 
     return NextResponse.json({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getWorkflows, createWorkflow, updateWorkflow, deleteWorkflow, toggleWorkflow } from '@/lib/automation-services'
 import { adminAuthMiddleware, hasAnyPermission } from '@/middleware/admin-auth'
+import { getOrgContext, TenantError } from '@/lib/tenant/getOrgContext'
 
 // GET /api/admin/automations - List all workflows
 export async function GET(request: NextRequest) {
@@ -21,7 +22,21 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const workflows = await getWorkflows()
+    // Get organization context (required for multi-tenant)
+    let orgContext
+    try {
+      orgContext = await getOrgContext(request)
+    } catch (error) {
+      if (error instanceof TenantError) {
+        return NextResponse.json(
+          { error: `Organization context required: ${error.message}` },
+          { status: 400 }
+        )
+      }
+      throw error
+    }
+
+    const workflows = await getWorkflows(orgContext.orgId)
     return NextResponse.json(workflows)
   } catch (error) {
     console.error('Error fetching workflows:', error)
@@ -43,12 +58,26 @@ export async function POST(request: NextRequest) {
 
     const user = (authResult as any).user
 
-    // Check permissions: need create access to automations/workflows
-    if (!hasAnyPermission(user, ['automations:create', 'workflows:create'])) {
+    // Check permissions: need write access to automations
+    if (!hasAnyPermission(user, ['automations:write'])) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
         { status: 403 }
       )
+    }
+
+    // Get organization context (required for multi-tenant)
+    let orgContext
+    try {
+      orgContext = await getOrgContext(request)
+    } catch (error) {
+      if (error instanceof TenantError) {
+        return NextResponse.json(
+          { error: `Organization context required: ${error.message}` },
+          { status: 400 }
+        )
+      }
+      throw error
     }
 
     const body = await request.json()
@@ -68,10 +97,10 @@ export async function POST(request: NextRequest) {
       trigger: body.trigger,
       triggerConfig: body.triggerConfig || {},
       actions: body.actions,
-      createdBy: 'admin' // TODO: Get from session
+      createdBy: orgContext.userId // Use real user ID from org context
     }
 
-    const workflow = await createWorkflow(workflowData)
+    const workflow = await createWorkflow(orgContext.orgId, workflowData)
     return NextResponse.json(workflow, { status: 201 })
   } catch (error) {
     console.error('Error creating workflow:', error)

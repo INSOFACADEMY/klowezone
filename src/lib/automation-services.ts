@@ -43,9 +43,10 @@ export interface AutomationRun {
 // WORKFLOW MANAGEMENT
 // ========================================
 
-export async function getWorkflows() {
+export async function getWorkflows(orgId: string) {
   try {
     const workflows = await prisma.automationWorkflow.findMany({
+      where: { organizationId: orgId },
       include: {
         actions: {
           orderBy: { order: 'asc' }
@@ -71,7 +72,7 @@ export async function getWorkflows() {
   }
 }
 
-export async function createWorkflow(data: Omit<AutomationWorkflow, 'id' | 'createdAt' | 'updatedAt'>) {
+export async function createWorkflow(orgId: string, data: Omit<AutomationWorkflow, 'id' | 'createdAt' | 'updatedAt'>) {
   try {
     return await prisma.automationWorkflow.create({
       data: {
@@ -80,13 +81,15 @@ export async function createWorkflow(data: Omit<AutomationWorkflow, 'id' | 'crea
         isActive: data.isActive,
         trigger: data.trigger,
         triggerConfig: data.triggerConfig,
+        organizationId: orgId,
         createdBy: data.createdBy,
         actions: {
           create: data.actions.map((action, index) => ({
             order: index,
             type: action.type,
             config: action.config,
-            delay: action.delay
+            delay: action.delay,
+            organizationId: orgId
           }))
         }
       },
@@ -104,12 +107,21 @@ export async function createWorkflow(data: Omit<AutomationWorkflow, 'id' | 'crea
   }
 }
 
-export async function updateWorkflow(id: string, data: Partial<AutomationWorkflow>) {
+export async function updateWorkflow(orgId: string, id: string, data: Partial<AutomationWorkflow>) {
   try {
+    // Verify the workflow belongs to the organization
+    const workflow = await prisma.automationWorkflow.findFirst({
+      where: { id, organizationId: orgId }
+    })
+
+    if (!workflow) {
+      throw new Error('Workflow not found or access denied')
+    }
+
     // First, delete existing actions if we're updating them
     if (data.actions) {
       await prisma.automationAction.deleteMany({
-        where: { workflowId: id }
+        where: { workflowId: id, organizationId: orgId }
       })
     }
 
@@ -127,7 +139,8 @@ export async function updateWorkflow(id: string, data: Partial<AutomationWorkflo
               order: action.order,
               type: action.type,
               config: action.config,
-              delay: action.delay
+              delay: action.delay,
+              organizationId: orgId
             }))
           }
         })
@@ -144,8 +157,17 @@ export async function updateWorkflow(id: string, data: Partial<AutomationWorkflo
   }
 }
 
-export async function deleteWorkflow(id: string) {
+export async function deleteWorkflow(orgId: string, id: string) {
   try {
+    // Verify the workflow belongs to the organization
+    const workflow = await prisma.automationWorkflow.findFirst({
+      where: { id, organizationId: orgId }
+    })
+
+    if (!workflow) {
+      throw new Error('Workflow not found or access denied')
+    }
+
     // This will cascade delete actions and runs due to Prisma relations
     return await prisma.automationWorkflow.delete({
       where: { id }
@@ -156,8 +178,17 @@ export async function deleteWorkflow(id: string) {
   }
 }
 
-export async function toggleWorkflow(id: string, isActive: boolean) {
+export async function toggleWorkflow(orgId: string, id: string, isActive: boolean) {
   try {
+    // Verify the workflow belongs to the organization
+    const workflow = await prisma.automationWorkflow.findFirst({
+      where: { id, organizationId: orgId }
+    })
+
+    if (!workflow) {
+      throw new Error('Workflow not found or access denied')
+    }
+
     return await prisma.automationWorkflow.update({
       where: { id },
       data: { isActive }
@@ -172,11 +203,12 @@ export async function toggleWorkflow(id: string, isActive: boolean) {
 // TRIGGER SYSTEM
 // ========================================
 
-export async function triggerAutomation(triggerType: string, triggerData: any) {
+export async function triggerAutomation(orgId: string, triggerType: string, triggerData: any) {
   try {
-    // Find active workflows that match this trigger
+    // Find active workflows that match this trigger for the organization
     const workflows = await prisma.automationWorkflow.findMany({
       where: {
+        organizationId: orgId,
         isActive: true,
         trigger: triggerType as any
       },
@@ -247,10 +279,21 @@ function getNestedValue(obj: any, path: string): any {
 
 export async function createAutomationRun(workflowId: string, triggerData: any) {
   try {
+    // Get organizationId from workflow
+    const workflow = await prisma.automationWorkflow.findUnique({
+      where: { id: workflowId },
+      select: { organizationId: true }
+    })
+
+    if (!workflow) {
+      throw new Error('Workflow not found')
+    }
+
     return await prisma.automationRun.create({
       data: {
         workflowId,
-        triggerData
+        triggerData,
+        organizationId: workflow.organizationId
       }
     })
   } catch (error) {
@@ -259,10 +302,13 @@ export async function createAutomationRun(workflowId: string, triggerData: any) 
   }
 }
 
-export async function getAutomationRuns(workflowId?: string, limit: number = 50) {
+export async function getAutomationRuns(orgId: string, workflowId?: string, limit: number = 50) {
   try {
     return await prisma.automationRun.findMany({
-      where: workflowId ? { workflowId } : undefined,
+      where: {
+        organizationId: orgId,
+        ...(workflowId && { workflowId })
+      },
       include: {
         workflow: {
           select: { name: true }
@@ -310,12 +356,23 @@ export async function queueJob(runId: string, actionId: string, payload: any, de
       ? new Date(Date.now() + delay * 1000)
       : new Date()
 
+    // Get organizationId from run
+    const run = await prisma.automationRun.findUnique({
+      where: { id: runId },
+      select: { organizationId: true }
+    })
+
+    if (!run) {
+      throw new Error('Run not found')
+    }
+
     return await prisma.jobQueue.create({
       data: {
         runId,
         actionId,
         payload,
-        scheduledFor
+        scheduledFor,
+        organizationId: run.organizationId
       }
     })
   } catch (error) {
@@ -324,14 +381,15 @@ export async function queueJob(runId: string, actionId: string, payload: any, de
   }
 }
 
-export async function getPendingJobs(limit: number = 10) {
+export async function getPendingJobs(orgId?: string, limit: number = 10) {
   try {
     return await prisma.jobQueue.findMany({
       where: {
         status: 'PENDING',
         scheduledFor: {
           lte: new Date()
-        }
+        },
+        ...(orgId && { organizationId: orgId })
       },
       include: {
         run: {

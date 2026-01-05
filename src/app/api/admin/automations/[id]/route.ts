@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { updateWorkflow, deleteWorkflow, toggleWorkflow } from '@/lib/automation-services'
 import { adminAuthMiddleware, hasAnyPermission } from '@/middleware/admin-auth'
+import { getOrgContext, TenantError } from '@/lib/tenant/getOrgContext'
 
 // PUT /api/admin/automations/[id] - Update workflow
 export async function PUT(
@@ -16,16 +17,30 @@ export async function PUT(
 
     const user = (authResult as any).user
 
-    // Check permissions: need update access to automations/workflows
-    if (!hasAnyPermission(user, ['automations:update', 'workflows:update'])) {
+    // Check permissions: need write access to automations
+    if (!hasAnyPermission(user, ['automations:write'])) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
         { status: 403 }
       )
     }
 
+    // Get organization context (required for multi-tenant)
+    let orgContext
+    try {
+      orgContext = await getOrgContext(request)
+    } catch (error) {
+      if (error instanceof TenantError) {
+        return NextResponse.json(
+          { error: `Organization context required: ${error.message}` },
+          { status: 400 }
+        )
+      }
+      throw error
+    }
+
     const body = await request.json()
-    const workflow = await updateWorkflow(params.id, body)
+    const workflow = await updateWorkflow(orgContext.orgId, params.id, body)
     return NextResponse.json(workflow)
   } catch (error) {
     console.error('Error updating workflow:', error)
@@ -50,15 +65,29 @@ export async function DELETE(
 
     const user = (authResult as any).user
 
-    // Check permissions: need delete access to automations/workflows
-    if (!hasAnyPermission(user, ['automations:delete', 'workflows:delete'])) {
+    // Check permissions: need write access to automations
+    if (!hasAnyPermission(user, ['automations:write'])) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
         { status: 403 }
       )
     }
 
-    await deleteWorkflow(params.id)
+    // Get organization context (required for multi-tenant)
+    let orgContext
+    try {
+      orgContext = await getOrgContext(request)
+    } catch (error) {
+      if (error instanceof TenantError) {
+        return NextResponse.json(
+          { error: `Organization context required: ${error.message}` },
+          { status: 400 }
+        )
+      }
+      throw error
+    }
+
+    await deleteWorkflow(orgContext.orgId, params.id)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error deleting workflow:', error)
@@ -83,12 +112,26 @@ export async function PATCH(
 
     const user = (authResult as any).user
 
-    // Check permissions: need update access to automations/workflows
-    if (!hasAnyPermission(user, ['automations:update', 'workflows:update'])) {
+    // Check permissions: need write access to automations
+    if (!hasAnyPermission(user, ['automations:write'])) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
         { status: 403 }
       )
+    }
+
+    // Get organization context (required for multi-tenant)
+    let orgContext
+    try {
+      orgContext = await getOrgContext(request)
+    } catch (error) {
+      if (error instanceof TenantError) {
+        return NextResponse.json(
+          { error: `Organization context required: ${error.message}` },
+          { status: 400 }
+        )
+      }
+      throw error
     }
 
     const body = await request.json()
@@ -101,7 +144,7 @@ export async function PATCH(
       )
     }
 
-    const workflow = await toggleWorkflow(params.id, isActive)
+    const workflow = await toggleWorkflow(orgContext.orgId, params.id, isActive)
     return NextResponse.json(workflow)
   } catch (error) {
     console.error('Error toggling workflow:', error)

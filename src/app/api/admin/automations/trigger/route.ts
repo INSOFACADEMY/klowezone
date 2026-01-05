@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { triggerAutomation } from '@/lib/automation-services'
 import { adminAuthMiddleware, hasAnyPermission } from '@/middleware/admin-auth'
+import { getOrgContext, TenantError } from '@/lib/tenant/getOrgContext'
 
 // POST /api/admin/automations/trigger - Trigger automation manually or from external events
 export async function POST(request: NextRequest) {
@@ -13,12 +14,26 @@ export async function POST(request: NextRequest) {
 
     const user = (authResult as any).user
 
-    // Check permissions: need execute/trigger access to automations/workflows
-    if (!hasAnyPermission(user, ['automations:execute', 'automations:trigger', 'workflows:execute', 'workflows:trigger'])) {
+    // Check permissions: need write access to automations
+    if (!hasAnyPermission(user, ['automations:write'])) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
         { status: 403 }
       )
+    }
+
+    // Get organization context (required for multi-tenant)
+    let orgContext
+    try {
+      orgContext = await getOrgContext(request)
+    } catch (error) {
+      if (error instanceof TenantError) {
+        return NextResponse.json(
+          { error: `Organization context required: ${error.message}` },
+          { status: 400 }
+        )
+      }
+      throw error
     }
 
     const body = await request.json()
@@ -48,7 +63,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const results = await triggerAutomation(triggerType, triggerData || {})
+    const results = await triggerAutomation(orgContext.orgId, triggerType, triggerData || {})
 
     return NextResponse.json({
       triggered: results.length,

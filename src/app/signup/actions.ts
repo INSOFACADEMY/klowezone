@@ -27,3 +27,4 @@ export async function syncUserAfterSignup(supabaseUserId: string) {
 
 
 
+

@@ -72,6 +72,17 @@ model Organization {
 
   // Relations
   members     OrganizationMember[]
+  systemConfigs SystemConfig[]
+  emailProviders EmailProvider[]
+  aiProviders AIProvider[]
+  storageProviders StorageProvider[]
+  auditLogs AuditLog[]
+  metricEvents MetricEvent[]
+  metricDashboards MetricDashboard[]
+  automationWorkflows AutomationWorkflow[]
+  automationActions AutomationAction[]
+  automationRuns AutomationRun[]
+  jobQueues JobQueue[]
 
   @@map("organizations")
 }
@@ -145,58 +156,78 @@ model RolePermission {
 // ========================================
 
 model SystemConfig {
-  id        String   @id @default(cuid())
-  key       String   @unique
-  value     String   // Encrypted JSON
-  category  String   // "email", "ai", "storage", "system"
-  isSecret  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  key            String
+  value          String   // Encrypted JSON
+  category       String   // "email", "ai", "storage", "system"
+  isSecret       Boolean  @default(false)
+  organizationId String   // Multi-tenant support
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([key, organizationId]) // Key unique per organization
   @@map("system_config")
 }
 
 model EmailProvider {
-  id           String   @id @default(cuid())
-  name         String   @unique
-  provider     String   // "smtp", "sendgrid", "resend"
-  config       String   // Encrypted JSON with credentials
-  isActive     Boolean  @default(false)
-  isDefault    Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String
+  provider       String   // "smtp", "sendgrid", "resend"
+  config         String   // Encrypted JSON with credentials
+  isActive       Boolean  @default(false)
+  isDefault      Boolean  @default(false)
+  organizationId String   // Multi-tenant support
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([name, organizationId]) // Name unique per organization
   @@map("email_providers")
 }
 
 model AIProvider {
-  id           String   @id @default(cuid())
-  name         String   @unique
-  provider     String   // "openai", "anthropic", "google"
-  model        String   // "gpt-4", "claude-3", etc.
-  config       String   // Encrypted JSON with API keys
-  isActive     Boolean  @default(false)
-  isDefault    Boolean  @default(false)
-  rateLimit    Int      @default(100) // requests per minute
-  monthlyLimit Int      @default(10000)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String
+  provider       String   // "openai", "anthropic", "google"
+  model          String   // "gpt-4", "claude-3", etc.
+  config         String   // Encrypted JSON with API keys
+  isActive       Boolean  @default(false)
+  isDefault      Boolean  @default(false)
+  rateLimit      Int      @default(100) // requests per minute
+  monthlyLimit   Int      @default(10000)
+  organizationId String   // Multi-tenant support
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([name, organizationId]) // Name unique per organization
   @@map("ai_providers")
 }
 
 model StorageProvider {
-  id           String   @id @default(cuid())
-  name         String   @unique
-  provider     String   // "s3", "r2", "local"
-  config       String   // Encrypted JSON with credentials
-  bucket       String
-  region       String?
-  isActive     Boolean  @default(false)
-  isDefault    Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String
+  provider       String   // "s3", "r2", "local"
+  config         String   // Encrypted JSON with credentials
+  bucket         String
+  region         String?
+  isActive       Boolean  @default(false)
+  isDefault      Boolean  @default(false)
+  organizationId String   // Multi-tenant support
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([name, organizationId]) // Name unique per organization
   @@map("storage_providers")
 }
 
@@ -290,34 +321,38 @@ model MediaFile {
 // ========================================
 
 model MetricEvent {
-  id          String   @id @default(cuid())
-  eventName   String
-  eventData   Json     // Flexible JSON data
-  userId      String?
-  sessionId   String?
-  userAgent   String?
-  ipAddress   String?
-  referrer    String?
-  timestamp   DateTime @default(now())
+  id             String   @id @default(cuid())
+  eventName      String
+  eventData      Json     // Flexible JSON data
+  userId         String?
+  organizationId String?  // Multi-tenant support
+  sessionId      String?
+  userAgent      String?
+  ipAddress      String?
+  referrer       String?
+  timestamp      DateTime @default(now())
 
   // Relations
-  user        User?    @relation(fields: [userId], references: [id])
+  user        User?         @relation(fields: [userId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("metric_events")
 }
 
 model MetricDashboard {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  config      Json     // Dashboard configuration
-  isPublic    Boolean  @default(false)
-  createdBy   String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  config         Json     // Dashboard configuration
+  isPublic       Boolean  @default(false)
+  createdBy      String
+  organizationId String   // Multi-tenant support
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relations
-  creator     User     @relation(fields: [createdBy], references: [id])
+  creator     User         @relation(fields: [createdBy], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("metric_dashboards")
 }
@@ -347,19 +382,21 @@ model ErrorLog {
 }
 
 model AuditLog {
-  id          String   @id @default(cuid())
-  action      String   // "create", "update", "delete"
-  resource    String   // "user", "post", "setting"
-  resourceId  String?
-  oldValues   Json?
-  newValues   Json?
-  userId      String
-  ipAddress   String?
-  userAgent   String?
-  timestamp   DateTime @default(now())
+  id             String   @id @default(cuid())
+  action         String   // "create", "update", "delete"
+  resource       String   // "user", "post", "setting"
+  resourceId     String?
+  oldValues      Json?
+  newValues      Json?
+  userId         String
+  organizationId String   // Multi-tenant support
+  ipAddress      String?
+  userAgent      String?
+  timestamp      DateTime @default(now())
 
   // Relations
-  user        User     @relation(fields: [userId], references: [id])
+  user        User         @relation(fields: [userId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("audit_logs")
 }
@@ -528,75 +565,86 @@ enum JobStatus {
 }
 
 model AutomationWorkflow {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  isActive    Boolean  @default(false)
-  trigger     TriggerType
-  triggerConfig Json     // Configuration for the trigger (filters, conditions)
-  actions     AutomationAction[]
-  createdBy   String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  isActive       Boolean  @default(false)
+  trigger        TriggerType
+  triggerConfig  Json     // Configuration for the trigger (filters, conditions)
+  organizationId String   // Multi-tenant support
+  actions        AutomationAction[]
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relations
-  creator     User     @relation(fields: [createdBy], references: [id])
-  runs        AutomationRun[]
+  creator      User               @relation(fields: [createdBy], references: [id])
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  runs         AutomationRun[]
 
+  @@unique([name, organizationId]) // Name unique per organization
   @@map("automation_workflows")
 }
 
 model AutomationAction {
-  id          String   @id @default(cuid())
-  workflowId  String
-  order       Int      // Execution order
-  type        ActionType
-  config      Json     // Action-specific configuration
-  delay       Int      @default(0) // Delay in seconds before execution
-  createdAt   DateTime @default(now())
+  id             String   @id @default(cuid())
+  workflowId     String
+  order          Int      // Execution order
+  type           ActionType
+  config         Json     // Action-specific configuration
+  delay          Int      @default(0) // Delay in seconds before execution
+  organizationId String   // Multi-tenant support
+  createdAt      DateTime @default(now())
 
   // Relations
-  workflow    AutomationWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflow     AutomationWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  jobs         JobQueue[]          // Reverse relation to JobQueue
 
   @@map("automation_actions")
 }
 
 model AutomationRun {
-  id          String   @id @default(cuid())
-  workflowId  String
-  triggerData Json     // Data that triggered the automation
-  status      JobStatus @default(PENDING)
-  startedAt   DateTime?
-  completedAt DateTime?
-  error       String?
-  retryCount  Int      @default(0)
-  maxRetries  Int      @default(3)
-  createdAt   DateTime @default(now())
+  id             String   @id @default(cuid())
+  workflowId     String
+  triggerData    Json     // Data that triggered the automation
+  status         JobStatus @default(PENDING)
+  startedAt      DateTime?
+  completedAt    DateTime?
+  error          String?
+  retryCount     Int      @default(0)
+  maxRetries     Int      @default(3)
+  organizationId String   // Multi-tenant support
+  createdAt      DateTime @default(now())
 
   // Relations
-  workflow    AutomationWorkflow @relation(fields: [workflowId], references: [id])
-  jobs        JobQueue[]
+  workflow     AutomationWorkflow @relation(fields: [workflowId], references: [id])
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  jobs         JobQueue[]
 
   @@map("automation_runs")
 }
 
 model JobQueue {
-  id            String   @id @default(cuid())
-  runId         String
-  actionId      String
-  status        JobStatus @default(PENDING)
-  payload       Json     // Job execution data
-  priority      Int      @default(1) // 1=low, 5=high
-  scheduledFor  DateTime @default(now())
-  startedAt     DateTime?
-  completedAt   DateTime?
-  error         String?
-  retryCount    Int      @default(0)
-  maxRetries    Int      @default(3)
-  createdAt     DateTime @default(now())
+  id             String   @id @default(cuid())
+  runId          String
+  actionId       String
+  status         JobStatus @default(PENDING)
+  payload        Json     // Job execution data
+  priority       Int      @default(1) // 1=low, 5=high
+  scheduledFor   DateTime @default(now())
+  startedAt      DateTime?
+  completedAt    DateTime?
+  error          String?
+  retryCount     Int      @default(0)
+  maxRetries     Int      @default(3)
+  organizationId String   // Multi-tenant support
+  createdAt      DateTime @default(now())
 
   // Relations
-  run           AutomationRun @relation(fields: [runId], references: [id])
+  run          AutomationRun     @relation(fields: [runId], references: [id])
+  action       AutomationAction  @relation(fields: [actionId], references: [id])
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("job_queue")
 }

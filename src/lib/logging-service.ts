@@ -1,4 +1,5 @@
 import { prisma } from './prisma'
+import { getOrgContext } from './tenant/getOrgContext'
 
 export interface LogEntry {
   id: string
@@ -263,6 +264,81 @@ export class LoggingService {
     const cfConnectingIp = request.headers?.get('cf-connecting-ip')
 
     return forwarded?.split(',')[0] || realIp || cfConnectingIp || undefined
+  }
+
+  /**
+   * Create an audit log entry (multi-tenant aware)
+   */
+  async logAuditEvent(
+    action: string,
+    resource: string,
+    resourceId?: string,
+    oldValues?: any,
+    newValues?: any,
+    userId?: string,
+    request?: Request
+  ): Promise<void> {
+    try {
+      // Get organization context (required for multi-tenant)
+      const orgContext = await getOrgContext(request)
+
+      await prisma.auditLog.create({
+        data: {
+          action,
+          resource,
+          resourceId,
+          oldValues,
+          newValues,
+          userId: userId || 'system',
+          organizationId: orgContext.orgId,
+          ipAddress: this.extractIpAddress(request),
+          userAgent: request?.headers?.get('user-agent') || undefined
+        }
+      })
+    } catch (error) {
+      console.error('Error logging audit event:', error)
+      // Don't throw - audit logging should not break main functionality
+    }
+  }
+
+  /**
+   * Get audit logs for the current organization
+   */
+  async getAuditLogs(options: {
+    limit?: number
+    offset?: number
+    action?: string
+    resource?: string
+    userId?: string
+    request?: Request
+  }): Promise<any[]> {
+    try {
+      // Get organization context (required for multi-tenant)
+      const orgContext = await getOrgContext(options.request)
+
+      const where: any = {
+        organizationId: orgContext.orgId
+      }
+
+      if (options.action) where.action = options.action
+      if (options.resource) where.resource = options.resource
+      if (options.userId) where.userId = options.userId
+
+      return await prisma.auditLog.findMany({
+        where,
+        orderBy: { timestamp: 'desc' },
+        take: options.limit || 50,
+        skip: options.offset || 0,
+        include: {
+          user: {
+            select: { id: true, email: true, firstName: true, lastName: true }
+          }
+        }
+      })
+    } catch (error) {
+      console.error('Error getting audit logs:', error)
+      return []
+    }
   }
 }
 

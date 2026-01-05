@@ -98,3 +98,4 @@ echo "    console.log('ORG:', m.organization.id, m.organization.name));"
 echo "  await prisma.\$disconnect();"
 echo "})();"
 echo "\""
+
