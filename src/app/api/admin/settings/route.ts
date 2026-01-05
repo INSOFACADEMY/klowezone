@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminAuthMiddleware } from '@/middleware/admin-auth'
 import { getOrgContext, TenantError } from '@/lib/tenant/getOrgContext'
+import { validateOrgPermission } from '@/lib/rbac/org-rbac'
 import { prisma } from '@/lib/prisma'
 import { encrypt, decrypt } from '@/lib/encryption'
 
@@ -78,6 +79,15 @@ export async function POST(request: NextRequest) {
         )
       }
       throw error
+    }
+
+    // RBAC: Settings write requires OWNER or ADMIN role
+    const permissionCheck = validateOrgPermission(orgContext, 'settings:write', 'write settings')
+    if (!permissionCheck.success) {
+      return NextResponse.json(
+        { error: permissionCheck.error },
+        { status: permissionCheck.statusCode }
+      )
     }
 
     const body = await request.json()

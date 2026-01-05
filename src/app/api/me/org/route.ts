@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Validar y forzar cambio de org
-      const result = await setActiveOrg(forceOrgId, request)
+      const result = await setActiveOrg(userId, forceOrgId)
       if (!result.success) {
         return NextResponse.json(
           { error: result.error },
@@ -108,6 +108,99 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error in /api/me/org:', error)
+
+    if (error instanceof TenantError) {
+      const statusCode = {
+        'NO_AUTH': 401,
+        'NO_ORG': 404,
+        'INVALID_ORG': 400,
+        'INTERNAL_ERROR': 500
+      }[error.message] || 500
+
+      return NextResponse.json(
+        { error: error.message },
+        { status: statusCode }
+      )
+    }
+
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    // Autenticar usuario
+    const authResult = await authenticateUser(request)
+    if (authResult instanceof NextResponse) {
+      return authResult
+    }
+    const { userId } = authResult
+
+    // Obtener orgId del body
+    const body = await request.json()
+    const { orgId } = body
+
+    if (!orgId) {
+      return NextResponse.json(
+        { error: 'orgId is required' },
+        { status: 400 }
+      )
+    }
+
+    // Cambiar organización activa
+    const result = await setActiveOrg(userId, orgId)
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error },
+        { status: 400 }
+      )
+    }
+
+    // Obtener contexto actualizado
+    const orgContext = await getOrgContext(request)
+
+    // Obtener detalles completos de la organización
+    const organization = await prisma.organization.findUnique({
+      where: { id: orgContext.orgId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        logo: true,
+        isActive: true,
+        createdAt: true
+      }
+    })
+
+    if (!organization) {
+      return NextResponse.json(
+        { error: 'Organization not found' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Organization switched successfully',
+      userId: orgContext.userId,
+      organization: {
+        id: organization.id,
+        name: organization.name,
+        slug: organization.slug,
+        description: organization.description,
+        logo: organization.logo,
+        isActive: organization.isActive,
+        createdAt: organization.createdAt
+      },
+      role: orgContext.orgRole
+    })
+
+  } catch (error) {
+    console.error('Error in POST /api/me/org:', error)
 
     if (error instanceof TenantError) {
       const statusCode = {

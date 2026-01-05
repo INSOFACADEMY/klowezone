@@ -1,8 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { BarChart3, Settings, FileText, Users, Zap, TrendingUp, MessageSquare } from 'lucide-react'
+import { usePathname, useState } from 'next/navigation'
+import { BarChart3, Settings, FileText, Users, Zap, TrendingUp, MessageSquare, Crown, ChevronDown, ChevronRight, FileBarChart } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { cn } from '@/lib/utils'
+import { OrganizationSwitcher } from './organization-switcher'
 
 const navigation = [
   {
@@ -70,12 +73,17 @@ export function AdminSidebar() {
     <div className="fixed left-0 top-0 h-full w-64 bg-slate-900/95 backdrop-blur-lg border-r border-slate-700/50 z-40">
       <div className="flex flex-col h-full p-6">
         {/* Logo */}
-        <div className="flex items-center mb-8">
+        <div className="flex items-center mb-6">
           <Crown className="w-8 h-8 text-emerald-400 mr-3" />
           <div>
             <h2 className="text-xl font-bold text-white">KloweZone</h2>
             <p className="text-xs text-slate-400">Admin Panel</p>
           </div>
+        </div>
+
+        {/* Organization Switcher */}
+        <div className="mb-6">
+          <OrganizationSwitcher />
         </div>
 
         {/* Navigation */}

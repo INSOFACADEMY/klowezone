@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { updateWorkflow, deleteWorkflow, toggleWorkflow } from '@/lib/automation-services'
 import { adminAuthMiddleware, hasAnyPermission } from '@/middleware/admin-auth'
 import { getOrgContext, TenantError } from '@/lib/tenant/getOrgContext'
+import { validateOrgPermission } from '@/lib/rbac/org-rbac'
 
 // PUT /api/admin/automations/[id] - Update workflow
 export async function PUT(
@@ -85,6 +86,15 @@ export async function DELETE(
         )
       }
       throw error
+    }
+
+    // RBAC: Workflow delete requires OWNER or ADMIN role
+    const permissionCheck = validateOrgPermission(orgContext, 'workflows:delete', 'delete workflow')
+    if (!permissionCheck.success) {
+      return NextResponse.json(
+        { error: permissionCheck.error },
+        { status: permissionCheck.statusCode }
+      )
     }
 
     await deleteWorkflow(orgContext.orgId, params.id)

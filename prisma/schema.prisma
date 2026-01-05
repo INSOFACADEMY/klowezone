@@ -83,6 +83,11 @@ model Organization {
   automationActions AutomationAction[]
   automationRuns AutomationRun[]
   jobQueues JobQueue[]
+  projects Project[]
+  projectDocuments ProjectDocument[]
+  projectActivities ProjectActivity[]
+  projectExpenses ProjectExpense[]
+  projectTeamMembers ProjectTeamMember[]
 
   @@map("organizations")
 }
@@ -161,12 +166,12 @@ model SystemConfig {
   value          String   // Encrypted JSON
   category       String   // "email", "ai", "storage", "system"
   isSecret       Boolean  @default(false)
-  organizationId String   // Multi-tenant support
+  organizationId String?  // Multi-tenant support
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   // Relations
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([key, organizationId]) // Key unique per organization
   @@map("system_config")
@@ -179,12 +184,12 @@ model EmailProvider {
   config         String   // Encrypted JSON with credentials
   isActive       Boolean  @default(false)
   isDefault      Boolean  @default(false)
-  organizationId String   // Multi-tenant support
+  organizationId String?  // Multi-tenant support
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   // Relations
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([name, organizationId]) // Name unique per organization
   @@map("email_providers")
@@ -200,12 +205,12 @@ model AIProvider {
   isDefault      Boolean  @default(false)
   rateLimit      Int      @default(100) // requests per minute
   monthlyLimit   Int      @default(10000)
-  organizationId String   // Multi-tenant support
+  organizationId String?  // Multi-tenant support
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   // Relations
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([name, organizationId]) // Name unique per organization
   @@map("ai_providers")
@@ -220,12 +225,12 @@ model StorageProvider {
   region         String?
   isActive       Boolean  @default(false)
   isDefault      Boolean  @default(false)
-  organizationId String   // Multi-tenant support
+  organizationId String?  // Multi-tenant support
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   // Relations
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([name, organizationId]) // Name unique per organization
   @@map("storage_providers")
@@ -346,13 +351,13 @@ model MetricDashboard {
   config         Json     // Dashboard configuration
   isPublic       Boolean  @default(false)
   createdBy      String
-  organizationId String   // Multi-tenant support
+  organizationId String?  // Multi-tenant support
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   // Relations
   creator     User         @relation(fields: [createdBy], references: [id])
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("metric_dashboards")
 }
@@ -389,14 +394,14 @@ model AuditLog {
   oldValues      Json?
   newValues      Json?
   userId         String
-  organizationId String   // Multi-tenant support
+  organizationId String?  // Multi-tenant support
   ipAddress      String?
   userAgent      String?
   timestamp      DateTime @default(now())
 
   // Relations
   user        User         @relation(fields: [userId], references: [id])
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("audit_logs")
 }
@@ -571,7 +576,7 @@ model AutomationWorkflow {
   isActive       Boolean  @default(false)
   trigger        TriggerType
   triggerConfig  Json     // Configuration for the trigger (filters, conditions)
-  organizationId String   // Multi-tenant support
+  organizationId String?  // Multi-tenant support
   actions        AutomationAction[]
   createdBy      String
   createdAt      DateTime @default(now())
@@ -579,7 +584,7 @@ model AutomationWorkflow {
 
   // Relations
   creator      User               @relation(fields: [createdBy], references: [id])
-  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   runs         AutomationRun[]
 
   @@unique([name, organizationId]) // Name unique per organization
@@ -593,12 +598,12 @@ model AutomationAction {
   type           ActionType
   config         Json     // Action-specific configuration
   delay          Int      @default(0) // Delay in seconds before execution
-  organizationId String   // Multi-tenant support
+  organizationId String?  // Multi-tenant support
   createdAt      DateTime @default(now())
 
   // Relations
   workflow     AutomationWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization?       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   jobs         JobQueue[]          // Reverse relation to JobQueue
 
   @@map("automation_actions")
@@ -614,12 +619,12 @@ model AutomationRun {
   error          String?
   retryCount     Int      @default(0)
   maxRetries     Int      @default(3)
-  organizationId String   // Multi-tenant support
+  organizationId String?  // Multi-tenant support
   createdAt      DateTime @default(now())
 
   // Relations
   workflow     AutomationWorkflow @relation(fields: [workflowId], references: [id])
-  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization?       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   jobs         JobQueue[]
 
   @@map("automation_runs")
@@ -638,13 +643,13 @@ model JobQueue {
   error          String?
   retryCount     Int      @default(0)
   maxRetries     Int      @default(3)
-  organizationId String   // Multi-tenant support
+  organizationId String?  // Multi-tenant support
   createdAt      DateTime @default(now())
 
   // Relations
   run          AutomationRun     @relation(fields: [runId], references: [id])
   action       AutomationAction  @relation(fields: [actionId], references: [id])
-  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("job_queue")
 }
@@ -664,12 +669,14 @@ model Project {
   fecha_entrega        DateTime?
   presupuesto_estimado Float?
   precio_venta         Float?
+  organizationId       String?  // Multi-tenant support
   created_at           DateTime @default(now())
   updated_at           DateTime @updatedAt
 
   // Relations
-  cliente           User     @relation("projectClient", fields: [cliente_id], references: [id])
-  owner             User     @relation("projectOwner", fields: [user_id], references: [id])
+  cliente           User               @relation("projectClient", fields: [cliente_id], references: [id])
+  owner             User               @relation("projectOwner", fields: [user_id], references: [id])
+  organization      Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   documents         ProjectDocument[]
   activities        ProjectActivity[]
   expenses          ProjectExpense[]
@@ -679,72 +686,80 @@ model Project {
 }
 
 model ProjectDocument {
-  id            String   @id @default(cuid())
-  project_id    String
-  nombre        String
-  tipo          DocumentType
-  url           String
-  size          Int?
-  uploaded_by   String
-  created_at    DateTime @default(now())
+  id             String   @id @default(cuid())
+  project_id     String
+  nombre         String
+  tipo           DocumentType
+  url            String
+  size           Int?
+  uploaded_by    String
+  organizationId String?  // Multi-tenant support
+  created_at     DateTime @default(now())
 
   // Relations
-  project       Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
-  uploader      User    @relation(fields: [uploaded_by], references: [id])
+  project       Project     @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  uploader      User        @relation(fields: [uploaded_by], references: [id])
+  organization  Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("project_documents")
 }
 
 model ProjectActivity {
-  id            String   @id @default(cuid())
-  project_id    String
-  tipo          ActivityType
-  titulo        String
-  descripcion   String
-  created_at    DateTime @default(now())
+  id             String   @id @default(cuid())
+  project_id     String
+  tipo           ActivityType
+  titulo         String
+  descripcion    String
+  organizationId String?  // Multi-tenant support
+  created_at     DateTime @default(now())
 
   // Relations
-  project       Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  project       Project     @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  organization  Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("project_activities")
 }
 
 model ProjectExpense {
-  id            String   @id @default(cuid())
-  project_id    String
-  descripcion   String
-  monto         Float
-  tipo          ExpenseType
-  fecha_gasto   DateTime
-  comprobante   String?  // URL del comprobante/receipt
-  aprobado_por  String?  // User ID who approved
-  created_by    String   // User ID who created
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
+  id             String   @id @default(cuid())
+  project_id     String
+  descripcion    String
+  monto          Float
+  tipo           ExpenseType
+  fecha_gasto    DateTime
+  comprobante    String?  // URL del comprobante/receipt
+  aprobado_por   String?  // User ID who approved
+  created_by     String   // User ID who created
+  organizationId String?  // Multi-tenant support
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
 
   // Relations
-  project       Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
-  creador       User    @relation("expenseCreator", fields: [created_by], references: [id])
-  aprobador     User?   @relation("expenseApprover", fields: [aprobado_por], references: [id])
+  project       Project     @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  creador       User        @relation("expenseCreator", fields: [created_by], references: [id])
+  aprobador     User?       @relation("expenseApprover", fields: [aprobado_por], references: [id])
+  organization  Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("project_expenses")
 }
 
 model ProjectTeamMember {
-  id            String   @id @default(cuid())
-  project_id    String
-  user_id       String
-  rol           TeamRole
-  asignado_en   DateTime @default(now())
-  asignado_por  String   // User ID who assigned
-  horas_estimadas Int?   // Estimated hours for this project
-  tarifa_hora   Float?   // Hourly rate for this member
-  activo        Boolean  @default(true)
+  id             String   @id @default(cuid())
+  project_id     String
+  user_id        String
+  rol            TeamRole
+  asignado_en    DateTime @default(now())
+  asignado_por   String   // User ID who assigned
+  horas_estimadas Int?    // Estimated hours for this project
+  tarifa_hora    Float?   // Hourly rate for this member
+  activo         Boolean  @default(true)
+  organizationId String?  // Multi-tenant support
 
   // Relations
-  project       Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
-  miembro       User    @relation("teamMember", fields: [user_id], references: [id])
-  asignador     User    @relation("teamAssigner", fields: [asignado_por], references: [id])
+  project       Project     @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  miembro       User        @relation("teamMember", fields: [user_id], references: [id])
+  asignador     User        @relation("teamAssigner", fields: [asignado_por], references: [id])
+  organization  Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([project_id, user_id]) // Un usuario solo puede estar una vez por proyecto
   @@map("project_team_members")
