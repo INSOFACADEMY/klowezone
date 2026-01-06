@@ -49,7 +49,12 @@ export const ORG_PERMISSIONS = {
   'clients:create': ['OWNER', 'ADMIN', 'MEMBER'],
   'clients:read': ['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'],
   'clients:update': ['OWNER', 'ADMIN', 'MEMBER'],
-  'clients:delete': ['OWNER', 'ADMIN']
+  'clients:delete': ['OWNER', 'ADMIN'],
+
+  // API Keys management
+  'api-keys:create': ['OWNER', 'ADMIN'],
+  'api-keys:read': ['OWNER', 'ADMIN'],
+  'api-keys:revoke': ['OWNER', 'ADMIN']
 } as const
 
 export type OrgPermission = keyof typeof ORG_PERMISSIONS

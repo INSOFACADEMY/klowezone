@@ -180,10 +180,11 @@ export default function DashboardPage() {
         // en Supabase antes de verificar el estado. Evita bucles entre dashboard y onboarding.
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // Check if onboarding is completed
+        // Check if onboarding is completed (skip for admin)
         const profile = await getUserProfile();
+        const isAdmin = user.email === 'admin@klowezone.com';
 
-        if (!profile?.onboarding_completed) {
+        if (!isAdmin && !profile?.onboarding_completed) {
           router.push('/onboarding');
           return;
         }

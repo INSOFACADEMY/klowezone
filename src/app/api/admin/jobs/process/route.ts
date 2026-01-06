@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPendingJobs, processJob } from '@/lib/automation-services'
-import { adminAuthMiddleware, hasAnyPermission } from '@/middleware/admin-auth'
+import { requireAdminUser, hasAnyPermission } from '@/middleware/admin-auth'
 import { getOrgContext, TenantError } from '@/lib/tenant/getOrgContext'
 
 // POST /api/admin/jobs/process - Process pending jobs
 export async function POST(request: NextRequest) {
   try {
     // Authenticate and authorize
-    const authResult = await adminAuthMiddleware(request)
-    if (authResult instanceof NextResponse) {
-      return authResult
-    }
+    const auth = await requireAdminUser(request);
+    if (auth instanceof NextResponse) return auth;
 
-    const user = (authResult as any).user
+    const { user } = auth;
 
     // Check permissions: need process access to jobs
     if (!hasAnyPermission(user, ['jobs:process'])) {

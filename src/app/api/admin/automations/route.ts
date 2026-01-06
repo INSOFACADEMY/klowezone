@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getWorkflows, createWorkflow, updateWorkflow, deleteWorkflow, toggleWorkflow } from '@/lib/automation-services'
-import { adminAuthMiddleware, hasAnyPermission } from '@/middleware/admin-auth'
+import { requireAdminUser, hasAnyPermission } from '@/middleware/admin-auth'
 import { getOrgContext, TenantError } from '@/lib/tenant/getOrgContext'
 
 // GET /api/admin/automations - List all workflows
 export async function GET(request: NextRequest) {
   try {
     // Authenticate and authorize
-    const authResult = await adminAuthMiddleware(request)
-    if (authResult instanceof NextResponse) {
-      return authResult
-    }
+    const auth = await requireAdminUser(request);
+    if (auth instanceof NextResponse) return auth;
 
-    const user = (authResult as any).user
+    const { user } = auth;
 
     // Check permissions: need read access to automations/workflows
     if (!hasAnyPermission(user, ['automations:read', 'workflows:read'])) {
@@ -51,12 +49,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Authenticate and authorize
-    const authResult = await adminAuthMiddleware(request)
-    if (authResult instanceof NextResponse) {
-      return authResult
-    }
+    const auth = await requireAdminUser(request);
+    if (auth instanceof NextResponse) return auth;
 
-    const user = (authResult as any).user
+    const { user } = auth;
 
     // Check permissions: need write access to automations
     if (!hasAnyPermission(user, ['automations:write'])) {

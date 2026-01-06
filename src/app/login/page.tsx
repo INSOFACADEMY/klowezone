@@ -98,8 +98,13 @@ export default function LoginPage() {
           if (sessionData.session?.user) {
             // Limpiar errores antes de redirigir
             setErrors({});
+
+            // Para el admin, redirigir directamente al panel de admin
+            const isAdmin = sessionData.session.user.email === 'admin@klowezone.com';
+            const redirectTo = isAdmin ? '/admin' : '/dashboard';
+
             // Redirigir solo después de confirmar sesión válida
-            router.push('/dashboard');
+            router.push(redirectTo);
           } else {
             setErrors({ general: 'Sesión no válida. Inténtalo de nuevo.' });
           }

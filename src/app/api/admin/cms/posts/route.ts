@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { adminAuthMiddleware, hasPermission } from '@/middleware/admin-auth'
+import { requireAdminUser, hasPermission } from '@/middleware/admin-auth'
 import { z } from 'zod'
 
 // Validation schema for blog post
@@ -20,10 +20,10 @@ const blogPostSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     // Authenticate admin user
-    const authRequest = await adminAuthMiddleware(request)
-    if (authRequest instanceof NextResponse) return authRequest
+    const auth = await requireAdminUser(request);
+    if (auth instanceof NextResponse) return auth;
 
-    const user = (authRequest as any).user
+    const { user } = auth;
     if (!hasPermission(user, 'posts.read')) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
@@ -88,10 +88,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Authenticate admin user
-    const authRequest = await adminAuthMiddleware(request)
-    if (authRequest instanceof NextResponse) return authRequest
+    const auth = await requireAdminUser(request);
+    if (auth instanceof NextResponse) return auth;
 
-    const user = (authRequest as any).user
+    const { user } = auth;
     if (!hasPermission(user, 'posts.create')) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },

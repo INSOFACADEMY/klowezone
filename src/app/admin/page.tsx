@@ -1,5 +1,6 @@
 import { Crown, BarChart3, Users, Settings, FileText, TrendingUp, Shield, Zap } from 'lucide-react'
 import Link from 'next/link'
+import AdminProtection from '@/components/admin/AdminProtection'
 
 function QuickActionCard({ title, description, href, icon: Icon, color }: {
   title: string
@@ -25,7 +26,7 @@ function QuickActionCard({ title, description, href, icon: Icon, color }: {
   )
 }
 
-export default function AdminPage() {
+export default async function AdminPage() {
   const quickActions = [
     {
       title: 'Dashboard',
@@ -86,7 +87,8 @@ export default function AdminPage() {
   ]
 
   return (
-    <div className="space-y-8">
+    <AdminProtection>
+      <div className="space-y-8">
       {/* Header */}
       <div className="text-center">
         <div className="flex items-center justify-center mb-4">
@@ -140,5 +142,6 @@ export default function AdminPage() {
         </div>
       </div>
     </div>
+    </AdminProtection>
   )
 }

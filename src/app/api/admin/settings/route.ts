@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { adminAuthMiddleware } from '@/middleware/admin-auth'
+import { requireAdminUser } from '@/middleware/admin-auth'
 import { getOrgContext, TenantError } from '@/lib/tenant/getOrgContext'
 import { validateOrgPermission } from '@/lib/rbac/org-rbac'
 import { prisma } from '@/lib/prisma'
@@ -7,11 +7,11 @@ import { encrypt, decrypt } from '@/lib/encryption'
 
 export async function GET(request: NextRequest) {
   try {
-    // Apply admin authentication middleware
-    const authResult = await adminAuthMiddleware(request)
-    if (authResult instanceof NextResponse) {
-      return authResult
-    }
+    // Apply admin authentication
+    const auth = await requireAdminUser(request);
+    if (auth instanceof NextResponse) return auth;
+
+    const { user } = auth;
 
     // Get organization context (required for multi-tenant)
     let orgContext
@@ -61,11 +61,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Apply admin authentication middleware
-    const authResult = await adminAuthMiddleware(request)
-    if (authResult instanceof NextResponse) {
-      return authResult
-    }
+    // Apply admin authentication
+    const auth = await requireAdminUser(request);
+    if (auth instanceof NextResponse) return auth;
+
+    const { user } = auth;
 
     // Get organization context (required for multi-tenant)
     let orgContext
@@ -151,11 +151,11 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    // Apply admin authentication middleware
-    const authResult = await adminAuthMiddleware(request)
-    if (authResult instanceof NextResponse) {
-      return authResult
-    }
+    // Apply admin authentication
+    const auth = await requireAdminUser(request);
+    if (auth instanceof NextResponse) return auth;
+
+    const { user } = auth;
 
     // Get organization context (required for multi-tenant)
     let orgContext

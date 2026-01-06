@@ -1,4 +1,3 @@
-// Prisma schema for KloweZone Admin Panel
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,104 +6,591 @@ datasource db {
   provider = "postgresql"
 }
 
-// ========================================
-// AUTH & RBAC SYSTEM
-// ========================================
-
 model User {
-  id              String   @id @default(cuid())
-  email           String   @unique
-  password        String
-  firstName       String
-  lastName        String
-  telefono        String?
-  avatar          String?
-  isActive        Boolean  @default(true)
-  isVerified      Boolean  @default(false)
-  roleId          String
-  metaCampaignId  String?  // ID de campaña de Meta que atrajo a este cliente
-  lastLogin       DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  // Relations
-  role              Role              @relation(fields: [roleId], references: [id])
+  id                      String               @id @default(cuid())
+  email                   String               @unique
+  password                String
+  firstName               String
+  lastName                String
+  avatar                  String?
+  isActive                Boolean              @default(true)
+  isVerified              Boolean              @default(false)
+  roleId                  String
+  lastLogin               DateTime?
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+  telefono                String?
+  metaCampaignId          String?
+  auditLogs               AuditLog[]
+  automationWorkflows     AutomationWorkflow[]
+  blogPosts               BlogPost[]
+  createdApiKeys          ApiKey[]
+  errorLogs               ErrorLog[]
+  feedbackAssigned        Feedback[]           @relation("feedbackAssignee")
+  feedbackCreated         Feedback[]           @relation("feedbackUser")
+  feedbackComments        FeedbackComment[]
+  incidentComments        IncidentComment[]
+  incidentsAssigned       Incident[]           @relation("incidentAssignee")
+  incidentsReported       Incident[]           @relation("incidentReporter")
+  mediaFiles              MediaFile[]
+  metricDashboards        MetricDashboard[]
+  metricEvents            MetricEvent[]
   organizationMemberships OrganizationMember[]
-  auditLogs         AuditLog[]
-  errorLogs         ErrorLog[]
-  incidentsAssigned Incident[] @relation("incidentAssignee")
-  incidentsReported Incident[] @relation("incidentReporter")
-  feedbackCreated   Feedback[] @relation("feedbackUser")
-  feedbackAssigned  Feedback[] @relation("feedbackAssignee")
-  metricDashboards  MetricDashboard[]
-  incidentComments  IncidentComment[]
-  feedbackComments  FeedbackComment[]
-  blogPosts         BlogPost[]
-  automationWorkflows AutomationWorkflow[]
-  pages             Page[]
-  testimonials      Testimonial[]
-  mediaFiles        MediaFile[]
-  metricEvents      MetricEvent[]
-  projectsAsClient   Project[] @relation("projectClient")
-  projectsAsOwner    Project[] @relation("projectOwner")
-  uploadedDocuments  ProjectDocument[]
-  createdExpenses    ProjectExpense[] @relation("expenseCreator")
-  approvedExpenses   ProjectExpense[] @relation("expenseApprover")
-  teamMemberships    ProjectTeamMember[] @relation("teamMember")
-  teamAssignments    ProjectTeamMember[] @relation("teamAssigner")
+  pages                   Page[]
+  uploadedDocuments       ProjectDocument[]
+  approvedExpenses        ProjectExpense[]     @relation("expenseApprover")
+  createdExpenses         ProjectExpense[]     @relation("expenseCreator")
+  teamAssignments         ProjectTeamMember[]  @relation("teamAssigner")
+  teamMemberships         ProjectTeamMember[]  @relation("teamMember")
+  projectsAsClient        Project[]            @relation("projectClient")
+  projectsAsOwner         Project[]            @relation("projectOwner")
+  testimonials            Testimonial[]
+  role                    Role                 @relation(fields: [roleId], references: [id])
 
   @@map("users")
 }
 
-// ========================================
-// MULTI-TENANT ORGANIZATIONS
-// ========================================
-
 model Organization {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  description String?
-  logo        String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  members     OrganizationMember[]
-  systemConfigs SystemConfig[]
-  emailProviders EmailProvider[]
-  aiProviders AIProvider[]
-  storageProviders StorageProvider[]
-  auditLogs AuditLog[]
-  metricEvents MetricEvent[]
-  metricDashboards MetricDashboard[]
+  id                  String               @id @default(cuid())
+  name                String
+  slug                String               @unique
+  description         String?
+  logo                String?
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  aiProviders         AIProvider[]
+  apiKeys             ApiKey[]
+  auditLogs           AuditLog[]
+  automationActions   AutomationAction[]
+  automationRuns      AutomationRun[]
   automationWorkflows AutomationWorkflow[]
-  automationActions AutomationAction[]
-  automationRuns AutomationRun[]
-  jobQueues JobQueue[]
-  projects Project[]
-  projectDocuments ProjectDocument[]
-  projectActivities ProjectActivity[]
-  projectExpenses ProjectExpense[]
-  projectTeamMembers ProjectTeamMember[]
+  emailProviders      EmailProvider[]
+  eventLogs           EventLog[]
+  jobQueues           JobQueue[]
+  metricDashboards    MetricDashboard[]
+  metricEvents        MetricEvent[]
+  members             OrganizationMember[]
+  projectActivities   ProjectActivity[]
+  projectDocuments    ProjectDocument[]
+  projectExpenses     ProjectExpense[]
+  projectTeamMembers  ProjectTeamMember[]
+  projects            Project[]
+  storageProviders    StorageProvider[]
+  systemConfigs       SystemConfig[]
 
   @@map("organizations")
 }
 
 model OrganizationMember {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   userId         String
-  role           OrgRole  @default(MEMBER)
-  joinedAt       DateTime @default(now())
-
-  // Relations
+  role           OrgRole      @default(MEMBER)
+  joinedAt       DateTime     @default(now())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([organizationId, userId]) // Un usuario solo puede estar una vez por organización
+  @@unique([organizationId, userId])
   @@map("organization_members")
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  description String?
+  isSystem    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  permissions RolePermission[]
+  users       User[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  resource    String
+  action      String
+  description String?
+  createdAt   DateTime         @default(now())
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model SystemConfig {
+  id             String        @id @default(cuid())
+  key            String
+  value          String
+  category       String
+  isSecret       Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([key, organizationId])
+  @@map("system_config")
+}
+
+model EmailProvider {
+  id             String        @id @default(cuid())
+  name           String
+  provider       String
+  config         String
+  isActive       Boolean       @default(false)
+  isDefault      Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([name, organizationId])
+  @@map("email_providers")
+}
+
+model AIProvider {
+  id             String        @id @default(cuid())
+  name           String
+  provider       String
+  model          String
+  config         String
+  isActive       Boolean       @default(false)
+  isDefault      Boolean       @default(false)
+  rateLimit      Int           @default(100)
+  monthlyLimit   Int           @default(10000)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([name, organizationId])
+  @@map("ai_providers")
+}
+
+model StorageProvider {
+  id             String        @id @default(cuid())
+  name           String
+  provider       String
+  config         String
+  bucket         String
+  region         String?
+  isActive       Boolean       @default(false)
+  isDefault      Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([name, organizationId])
+  @@map("storage_providers")
+}
+
+model BlogPost {
+  id             String     @id @default(cuid())
+  title          String
+  slug           String     @unique
+  content        String
+  excerpt        String?
+  coverImage     String?
+  status         PostStatus @default(DRAFT)
+  seoTitle       String?
+  seoDescription String?
+  tags           String[]
+  authorId       String
+  publishedAt    DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  author         User       @relation(fields: [authorId], references: [id])
+
+  @@map("blog_posts")
+}
+
+model Page {
+  id             String     @id @default(cuid())
+  title          String
+  slug           String     @unique
+  content        String
+  status         PostStatus @default(DRAFT)
+  seoTitle       String?
+  seoDescription String?
+  authorId       String
+  publishedAt    DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  author         User       @relation(fields: [authorId], references: [id])
+
+  @@map("pages")
+}
+
+model Testimonial {
+  id        String   @id @default(cuid())
+  name      String
+  position  String?
+  company   String?
+  content   String
+  avatar    String?
+  rating    Int      @default(5)
+  isActive  Boolean  @default(true)
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  author    User     @relation(fields: [authorId], references: [id])
+
+  @@map("testimonials")
+}
+
+model MediaFile {
+  id           String   @id @default(cuid())
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  url          String
+  thumbnail    String?
+  alt          String?
+  tags         String[]
+  folder       String   @default("general")
+  uploadedBy   String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  uploader     User     @relation(fields: [uploadedBy], references: [id])
+
+  @@map("media_files")
+}
+
+model MetricEvent {
+  id             String        @id @default(cuid())
+  eventName      String
+  eventData      Json
+  userId         String?
+  sessionId      String?
+  userAgent      String?
+  ipAddress      String?
+  referrer       String?
+  timestamp      DateTime      @default(now())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User?         @relation(fields: [userId], references: [id])
+
+  @@map("metric_events")
+}
+
+model MetricDashboard {
+  id             String        @id @default(cuid())
+  name           String
+  description    String?
+  config         Json
+  isPublic       Boolean       @default(false)
+  createdBy      String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organizationId String?
+  creator        User          @relation(fields: [createdBy], references: [id])
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("metric_dashboards")
+}
+
+model ErrorLog {
+  id         String   @id @default(cuid())
+  level      LogLevel
+  message    String
+  stack      String?
+  url        String?
+  method     String?
+  statusCode Int?
+  userId     String?
+  requestId  String   @unique
+  userAgent  String?
+  ipAddress  String?
+  timestamp  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@map("error_logs")
+}
+
+model AuditLog {
+  id             String        @id @default(cuid())
+  action         String
+  resource       String
+  resourceId     String?
+  oldValues      Json?
+  newValues      Json?
+  userId         String
+  ipAddress      String?
+  userAgent      String?
+  timestamp      DateTime      @default(now())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User          @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model Incident {
+  id          String            @id @default(cuid())
+  title       String
+  description String
+  severity    IncidentSeverity
+  status      IncidentStatus    @default(OPEN)
+  assignedTo  String?
+  reportedBy  String
+  resolvedAt  DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  comments    IncidentComment[]
+  assignee    User?             @relation("incidentAssignee", fields: [assignedTo], references: [id])
+  reporter    User              @relation("incidentReporter", fields: [reportedBy], references: [id])
+
+  @@map("incidents")
+}
+
+model IncidentComment {
+  id         String   @id @default(cuid())
+  content    String
+  incidentId String
+  authorId   String
+  createdAt  DateTime @default(now())
+  author     User     @relation(fields: [authorId], references: [id])
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@map("incident_comments")
+}
+
+model Feedback {
+  id          String            @id @default(cuid())
+  type        FeedbackType
+  priority    FeedbackPriority  @default(MEDIUM)
+  title       String
+  description String
+  screenshot  String?
+  url         String?
+  userAgent   String?
+  userId      String?
+  status      FeedbackStatus    @default(PENDING)
+  assignedTo  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  assignee    User?             @relation("feedbackAssignee", fields: [assignedTo], references: [id])
+  user        User?             @relation("feedbackUser", fields: [userId], references: [id])
+  comments    FeedbackComment[]
+
+  @@map("feedback")
+}
+
+model FeedbackComment {
+  id         String   @id @default(cuid())
+  content    String
+  feedbackId String
+  authorId   String
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  author     User     @relation(fields: [authorId], references: [id])
+  feedback   Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+
+  @@map("feedback_comments")
+}
+
+model AutomationWorkflow {
+  id             String             @id @default(cuid())
+  name           String
+  description    String?
+  isActive       Boolean            @default(false)
+  trigger        TriggerType
+  triggerConfig  Json
+  createdBy      String
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  organizationId String?
+  actions        AutomationAction[]
+  runs           AutomationRun[]
+  creator        User               @relation(fields: [createdBy], references: [id])
+  organization   Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([name, organizationId])
+  @@map("automation_workflows")
+}
+
+model AutomationAction {
+  id             String             @id @default(cuid())
+  workflowId     String
+  order          Int
+  type           ActionType
+  config         Json
+  delay          Int                @default(0)
+  createdAt      DateTime           @default(now())
+  organizationId String?
+  organization   Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workflow       AutomationWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  jobs           JobQueue[]
+
+  @@map("automation_actions")
+}
+
+model AutomationRun {
+  id             String             @id @default(cuid())
+  workflowId     String
+  triggerData    Json
+  status         JobStatus          @default(PENDING)
+  startedAt      DateTime?
+  completedAt    DateTime?
+  error          String?
+  retryCount     Int                @default(0)
+  maxRetries     Int                @default(3)
+  createdAt      DateTime           @default(now())
+  organizationId String?
+  organization   Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workflow       AutomationWorkflow @relation(fields: [workflowId], references: [id])
+  jobs           JobQueue[]
+
+  @@map("automation_runs")
+}
+
+model JobQueue {
+  id             String           @id @default(cuid())
+  runId          String
+  actionId       String
+  status         JobStatus        @default(PENDING)
+  payload        Json
+  priority       Int              @default(1)
+  scheduledFor   DateTime         @default(now())
+  startedAt      DateTime?
+  completedAt    DateTime?
+  error          String?
+  retryCount     Int              @default(0)
+  maxRetries     Int              @default(3)
+  createdAt      DateTime         @default(now())
+  organizationId String?
+  action         AutomationAction @relation(fields: [actionId], references: [id])
+  organization   Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  run            AutomationRun    @relation(fields: [runId], references: [id])
+
+  @@map("job_queue")
+}
+
+model Project {
+  id                   String              @id @default(cuid())
+  cliente_id           String
+  user_id              String
+  nombre_proyecto      String
+  descripcion          String?
+  estado               ProjectStatus       @default(PLANIFICACION)
+  prioridad            Priority            @default(MEDIA)
+  fecha_entrega        DateTime?
+  created_at           DateTime            @default(now())
+  updated_at           DateTime            @updatedAt
+  precio_venta         Float?
+  presupuesto_estimado Float?
+  organizationId       String?
+  activities           ProjectActivity[]
+  documents            ProjectDocument[]
+  expenses             ProjectExpense[]
+  teamMembers          ProjectTeamMember[]
+  cliente              User                @relation("projectClient", fields: [cliente_id], references: [id])
+  organization         Organization?       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner                User                @relation("projectOwner", fields: [user_id], references: [id])
+
+  @@map("proyectos")
+}
+
+model ProjectDocument {
+  id             String        @id @default(cuid())
+  project_id     String
+  nombre         String
+  tipo           DocumentType
+  url            String
+  size           Int?
+  uploaded_by    String
+  created_at     DateTime      @default(now())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project       @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  uploader       User          @relation(fields: [uploaded_by], references: [id])
+
+  @@map("project_documents")
+}
+
+model ProjectActivity {
+  id             String        @id @default(cuid())
+  project_id     String
+  tipo           ActivityType
+  titulo         String
+  descripcion    String
+  created_at     DateTime      @default(now())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project       @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@map("project_activities")
+}
+
+model ProjectExpense {
+  id             String        @id @default(cuid())
+  project_id     String
+  descripcion    String
+  monto          Float
+  tipo           ExpenseType
+  fecha_gasto    DateTime
+  comprobante    String?
+  aprobado_por   String?
+  created_by     String
+  created_at     DateTime      @default(now())
+  updated_at     DateTime      @updatedAt
+  organizationId String?
+  aprobador      User?         @relation("expenseApprover", fields: [aprobado_por], references: [id])
+  creador        User          @relation("expenseCreator", fields: [created_by], references: [id])
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project       @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@map("project_expenses")
+}
+
+model ProjectTeamMember {
+  id              String        @id @default(cuid())
+  project_id      String
+  user_id         String
+  rol             TeamRole
+  asignado_en     DateTime      @default(now())
+  asignado_por    String
+  horas_estimadas Int?
+  tarifa_hora     Float?
+  activo          Boolean       @default(true)
+  organizationId  String?
+  asignador       User          @relation("teamAssigner", fields: [asignado_por], references: [id])
+  organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project         Project       @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  miembro         User          @relation("teamMember", fields: [user_id], references: [id])
+
+  @@unique([project_id, user_id])
+  @@map("project_team_members")
+}
+
+model AiCampaignLog {
+  id               String   @id @default(cuid())
+  campaignId       String   @unique
+  name             String
+  spend            Float    @default(0)
+  leadsCount       Int      @default(0)
+  revenueGenerated Float    @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("ai_campaign_logs")
 }
 
 enum OrgRole {
@@ -113,379 +599,6 @@ enum OrgRole {
   MEMBER
   VIEWER
 }
-
-model Role {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  isSystem    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  users       User[]
-  permissions RolePermission[]
-
-  @@map("roles")
-}
-
-model Permission {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  resource    String   // e.g., "users", "posts", "settings"
-  action      String   // e.g., "create", "read", "update", "delete"
-  description String?
-  createdAt   DateTime @default(now())
-
-  // Relations
-  roles       RolePermission[]
-
-  @@map("permissions")
-}
-
-model RolePermission {
-  id           String @id @default(cuid())
-  roleId       String
-  permissionId String
-
-  // Relations
-  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-
-  @@unique([roleId, permissionId])
-  @@map("role_permissions")
-}
-
-// ========================================
-// SYSTEM CONFIGURATION
-// ========================================
-
-model SystemConfig {
-  id             String   @id @default(cuid())
-  key            String
-  value          String   // Encrypted JSON
-  category       String   // "email", "ai", "storage", "system"
-  isSecret       Boolean  @default(false)
-  organizationId String?  // Multi-tenant support
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  // Relations
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@unique([key, organizationId]) // Key unique per organization
-  @@map("system_config")
-}
-
-model EmailProvider {
-  id             String   @id @default(cuid())
-  name           String
-  provider       String   // "smtp", "sendgrid", "resend"
-  config         String   // Encrypted JSON with credentials
-  isActive       Boolean  @default(false)
-  isDefault      Boolean  @default(false)
-  organizationId String?  // Multi-tenant support
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  // Relations
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@unique([name, organizationId]) // Name unique per organization
-  @@map("email_providers")
-}
-
-model AIProvider {
-  id             String   @id @default(cuid())
-  name           String
-  provider       String   // "openai", "anthropic", "google"
-  model          String   // "gpt-4", "claude-3", etc.
-  config         String   // Encrypted JSON with API keys
-  isActive       Boolean  @default(false)
-  isDefault      Boolean  @default(false)
-  rateLimit      Int      @default(100) // requests per minute
-  monthlyLimit   Int      @default(10000)
-  organizationId String?  // Multi-tenant support
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  // Relations
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@unique([name, organizationId]) // Name unique per organization
-  @@map("ai_providers")
-}
-
-model StorageProvider {
-  id             String   @id @default(cuid())
-  name           String
-  provider       String   // "s3", "r2", "local"
-  config         String   // Encrypted JSON with credentials
-  bucket         String
-  region         String?
-  isActive       Boolean  @default(false)
-  isDefault      Boolean  @default(false)
-  organizationId String?  // Multi-tenant support
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  // Relations
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@unique([name, organizationId]) // Name unique per organization
-  @@map("storage_providers")
-}
-
-// ========================================
-// CMS SYSTEM
-// ========================================
-
-model BlogPost {
-  id          String   @id @default(cuid())
-  title       String
-  slug        String   @unique
-  content     String   // Markdown content
-  excerpt     String?
-  coverImage  String?
-  status      PostStatus @default(DRAFT)
-  seoTitle    String?
-  seoDescription String?
-  tags        String[]  // Array of tags
-  authorId    String
-  publishedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  author      User     @relation(fields: [authorId], references: [id])
-
-  @@map("blog_posts")
-}
-
-model Page {
-  id          String   @id @default(cuid())
-  title       String
-  slug        String   @unique
-  content     String   // HTML/Markdown content
-  status      PostStatus @default(DRAFT)
-  seoTitle    String?
-  seoDescription String?
-  authorId    String
-  publishedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  author      User     @relation(fields: [authorId], references: [id])
-
-  @@map("pages")
-}
-
-model Testimonial {
-  id          String   @id @default(cuid())
-  name        String
-  position    String?
-  company     String?
-  content     String
-  avatar      String?
-  rating      Int      @default(5) // 1-5 stars
-  isActive    Boolean  @default(true)
-  authorId    String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  author      User     @relation(fields: [authorId], references: [id])
-
-  @@map("testimonials")
-}
-
-model MediaFile {
-  id          String   @id @default(cuid())
-  filename    String
-  originalName String
-  mimeType    String
-  size        Int
-  url         String
-  thumbnail   String?
-  alt         String?
-  tags        String[]  // Array of tags
-  folder      String    @default("general")
-  uploadedBy  String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  uploader    User     @relation(fields: [uploadedBy], references: [id])
-
-  @@map("media_files")
-}
-
-// ========================================
-// METRICS & ANALYTICS
-// ========================================
-
-model MetricEvent {
-  id             String   @id @default(cuid())
-  eventName      String
-  eventData      Json     // Flexible JSON data
-  userId         String?
-  organizationId String?  // Multi-tenant support
-  sessionId      String?
-  userAgent      String?
-  ipAddress      String?
-  referrer       String?
-  timestamp      DateTime @default(now())
-
-  // Relations
-  user        User?         @relation(fields: [userId], references: [id])
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@map("metric_events")
-}
-
-model MetricDashboard {
-  id             String   @id @default(cuid())
-  name           String
-  description    String?
-  config         Json     // Dashboard configuration
-  isPublic       Boolean  @default(false)
-  createdBy      String
-  organizationId String?  // Multi-tenant support
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  // Relations
-  creator     User         @relation(fields: [createdBy], references: [id])
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@map("metric_dashboards")
-}
-
-// ========================================
-// LOGGING SYSTEM
-// ========================================
-
-model ErrorLog {
-  id          String   @id @default(cuid())
-  level       LogLevel
-  message     String
-  stack       String?
-  url         String?
-  method      String?
-  statusCode  Int?
-  userId      String?
-  requestId   String   @unique
-  userAgent   String?
-  ipAddress   String?
-  timestamp   DateTime @default(now())
-
-  // Relations
-  user        User?    @relation(fields: [userId], references: [id])
-
-  @@map("error_logs")
-}
-
-model AuditLog {
-  id             String   @id @default(cuid())
-  action         String   // "create", "update", "delete"
-  resource       String   // "user", "post", "setting"
-  resourceId     String?
-  oldValues      Json?
-  newValues      Json?
-  userId         String
-  organizationId String?  // Multi-tenant support
-  ipAddress      String?
-  userAgent      String?
-  timestamp      DateTime @default(now())
-
-  // Relations
-  user        User         @relation(fields: [userId], references: [id])
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@map("audit_logs")
-}
-
-model Incident {
-  id          String     @id @default(cuid())
-  title       String
-  description String
-  severity    IncidentSeverity
-  status      IncidentStatus @default(OPEN)
-  assignedTo  String?
-  reportedBy  String
-  resolvedAt  DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  // Relations
-  assignee    User?     @relation("incidentAssignee", fields: [assignedTo], references: [id])
-  reporter    User      @relation("incidentReporter", fields: [reportedBy], references: [id])
-  comments    IncidentComment[]
-
-  @@map("incidents")
-}
-
-model IncidentComment {
-  id          String   @id @default(cuid())
-  content     String
-  incidentId  String
-  authorId    String
-  createdAt   DateTime @default(now())
-
-  // Relations
-  incident    Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
-  author      User     @relation(fields: [authorId], references: [id])
-
-  @@map("incident_comments")
-}
-
-// ========================================
-// FEEDBACK SYSTEM
-// ========================================
-
-model Feedback {
-  id          String   @id @default(cuid())
-  type        FeedbackType
-  priority    FeedbackPriority @default(MEDIUM)
-  title       String
-  description String
-  screenshot  String?
-  url         String?
-  userAgent   String?
-  userId      String?
-  status      FeedbackStatus @default(PENDING)
-  assignedTo  String?
-  resolvedAt  DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  user        User?    @relation("feedbackUser", fields: [userId], references: [id])
-  assignee    User?    @relation("feedbackAssignee", fields: [assignedTo], references: [id])
-  comments    FeedbackComment[]
-
-  @@map("feedback")
-}
-
-model FeedbackComment {
-  id          String   @id @default(cuid())
-  content     String
-  feedbackId  String
-  authorId    String
-  isInternal  Boolean  @default(false) // Only visible to admins
-  createdAt   DateTime @default(now())
-
-  // Relations
-  feedback    Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
-  author      User     @relation(fields: [authorId], references: [id])
-
-  @@map("feedback_comments")
-}
-
-// ========================================
-// ENUMS
-// ========================================
 
 enum PostStatus {
   DRAFT
@@ -537,10 +650,6 @@ enum FeedbackStatus {
   CLOSED
 }
 
-// ========================================
-// AUTOMATION SYSTEM
-// ========================================
-
 enum TriggerType {
   NEW_LEAD
   PROJECT_STATUS_CHANGE
@@ -569,203 +678,6 @@ enum JobStatus {
   RETRYING
 }
 
-model AutomationWorkflow {
-  id             String   @id @default(cuid())
-  name           String
-  description    String?
-  isActive       Boolean  @default(false)
-  trigger        TriggerType
-  triggerConfig  Json     // Configuration for the trigger (filters, conditions)
-  organizationId String?  // Multi-tenant support
-  actions        AutomationAction[]
-  createdBy      String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  // Relations
-  creator      User               @relation(fields: [createdBy], references: [id])
-  organization Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  runs         AutomationRun[]
-
-  @@unique([name, organizationId]) // Name unique per organization
-  @@map("automation_workflows")
-}
-
-model AutomationAction {
-  id             String   @id @default(cuid())
-  workflowId     String
-  order          Int      // Execution order
-  type           ActionType
-  config         Json     // Action-specific configuration
-  delay          Int      @default(0) // Delay in seconds before execution
-  organizationId String?  // Multi-tenant support
-  createdAt      DateTime @default(now())
-
-  // Relations
-  workflow     AutomationWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  organization Organization?       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  jobs         JobQueue[]          // Reverse relation to JobQueue
-
-  @@map("automation_actions")
-}
-
-model AutomationRun {
-  id             String   @id @default(cuid())
-  workflowId     String
-  triggerData    Json     // Data that triggered the automation
-  status         JobStatus @default(PENDING)
-  startedAt      DateTime?
-  completedAt    DateTime?
-  error          String?
-  retryCount     Int      @default(0)
-  maxRetries     Int      @default(3)
-  organizationId String?  // Multi-tenant support
-  createdAt      DateTime @default(now())
-
-  // Relations
-  workflow     AutomationWorkflow @relation(fields: [workflowId], references: [id])
-  organization Organization?       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  jobs         JobQueue[]
-
-  @@map("automation_runs")
-}
-
-model JobQueue {
-  id             String   @id @default(cuid())
-  runId          String
-  actionId       String
-  status         JobStatus @default(PENDING)
-  payload        Json     // Job execution data
-  priority       Int      @default(1) // 1=low, 5=high
-  scheduledFor   DateTime @default(now())
-  startedAt      DateTime?
-  completedAt    DateTime?
-  error          String?
-  retryCount     Int      @default(0)
-  maxRetries     Int      @default(3)
-  organizationId String?  // Multi-tenant support
-  createdAt      DateTime @default(now())
-
-  // Relations
-  run          AutomationRun     @relation(fields: [runId], references: [id])
-  action       AutomationAction  @relation(fields: [actionId], references: [id])
-  organization Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@map("job_queue")
-}
-
-// ========================================
-// PROJECT MANAGEMENT SYSTEM
-// ========================================
-
-model Project {
-  id                   String   @id @default(cuid())
-  cliente_id           String
-  user_id              String
-  nombre_proyecto      String
-  descripcion          String?
-  estado               ProjectStatus @default(PLANIFICACION)
-  prioridad            Priority @default(MEDIA)
-  fecha_entrega        DateTime?
-  presupuesto_estimado Float?
-  precio_venta         Float?
-  organizationId       String?  // Multi-tenant support
-  created_at           DateTime @default(now())
-  updated_at           DateTime @updatedAt
-
-  // Relations
-  cliente           User               @relation("projectClient", fields: [cliente_id], references: [id])
-  owner             User               @relation("projectOwner", fields: [user_id], references: [id])
-  organization      Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  documents         ProjectDocument[]
-  activities        ProjectActivity[]
-  expenses          ProjectExpense[]
-  teamMembers       ProjectTeamMember[]
-
-  @@map("proyectos")
-}
-
-model ProjectDocument {
-  id             String   @id @default(cuid())
-  project_id     String
-  nombre         String
-  tipo           DocumentType
-  url            String
-  size           Int?
-  uploaded_by    String
-  organizationId String?  // Multi-tenant support
-  created_at     DateTime @default(now())
-
-  // Relations
-  project       Project     @relation(fields: [project_id], references: [id], onDelete: Cascade)
-  uploader      User        @relation(fields: [uploaded_by], references: [id])
-  organization  Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@map("project_documents")
-}
-
-model ProjectActivity {
-  id             String   @id @default(cuid())
-  project_id     String
-  tipo           ActivityType
-  titulo         String
-  descripcion    String
-  organizationId String?  // Multi-tenant support
-  created_at     DateTime @default(now())
-
-  // Relations
-  project       Project     @relation(fields: [project_id], references: [id], onDelete: Cascade)
-  organization  Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@map("project_activities")
-}
-
-model ProjectExpense {
-  id             String   @id @default(cuid())
-  project_id     String
-  descripcion    String
-  monto          Float
-  tipo           ExpenseType
-  fecha_gasto    DateTime
-  comprobante    String?  // URL del comprobante/receipt
-  aprobado_por   String?  // User ID who approved
-  created_by     String   // User ID who created
-  organizationId String?  // Multi-tenant support
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
-
-  // Relations
-  project       Project     @relation(fields: [project_id], references: [id], onDelete: Cascade)
-  creador       User        @relation("expenseCreator", fields: [created_by], references: [id])
-  aprobador     User?       @relation("expenseApprover", fields: [aprobado_por], references: [id])
-  organization  Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@map("project_expenses")
-}
-
-model ProjectTeamMember {
-  id             String   @id @default(cuid())
-  project_id     String
-  user_id        String
-  rol            TeamRole
-  asignado_en    DateTime @default(now())
-  asignado_por   String   // User ID who assigned
-  horas_estimadas Int?    // Estimated hours for this project
-  tarifa_hora    Float?   // Hourly rate for this member
-  activo         Boolean  @default(true)
-  organizationId String?  // Multi-tenant support
-
-  // Relations
-  project       Project     @relation(fields: [project_id], references: [id], onDelete: Cascade)
-  miembro       User        @relation("teamMember", fields: [user_id], references: [id])
-  asignador     User        @relation("teamAssigner", fields: [asignado_por], references: [id])
-  organization  Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@unique([project_id, user_id]) // Un usuario solo puede estar una vez por proyecto
-  @@map("project_team_members")
-}
-
-// Enums
 enum ProjectStatus {
   PLANIFICACION
   EN_PROGRESO
@@ -806,23 +718,6 @@ enum ExpenseType {
   OTROS
 }
 
-// ========================================
-// AI CAMPAIGN LOGGING SYSTEM
-// ========================================
-
-model AiCampaignLog {
-  id               String   @id @default(cuid())
-  campaignId       String   @unique // ID de la campaña en Meta
-  name             String   // Nombre de la campaña
-  spend            Float    @default(0) // Presupuesto gastado en la campaña
-  leadsCount       Int      @default(0) // Número de leads generados
-  revenueGenerated Float    @default(0) // Ingresos generados por la campaña
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  @@map("ai_campaign_logs")
-}
-
 enum TeamRole {
   PROJECT_MANAGER
   DEVELOPER
@@ -831,4 +726,58 @@ enum TeamRole {
   BUSINESS_ANALYST
   DEVOPS
   CONSULTANT
+}
+
+// ========================================
+// API KEYS SYSTEM
+// ========================================
+
+model ApiKey {
+  id              String   @id @default(cuid())
+  organizationId  String
+  name            String
+  keyPrefix       String   // First 8 chars for display
+  keyHash         String   // Secure scrypt hash
+  scopes          Json?    // Optional scopes (array)
+  lastUsedAt      DateTime?
+  createdByUserId String?
+  isRevoked       Boolean  @default(false)
+  revokedAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdByUser User?       @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  eventLogs     EventLog[]
+
+  // Indexes
+  @@index([organizationId])
+  @@unique([keyPrefix, organizationId])
+  @@map("api_keys")
+}
+
+// ========================================
+// WEBHOOK INGESTION SYSTEM
+// ========================================
+
+model EventLog {
+  id              String   @id @default(cuid())
+  organizationId  String
+  eventType       String
+  payload         Json     // Event payload data
+  source          String?  // Source system
+  idempotencyKey  String?  // Optional idempotency key
+  apiKeyId        String?  // API key that sent the event
+  unvalidated     Boolean  @default(false) // True if payload not validated against schema
+  createdAt       DateTime @default(now())
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apiKey       ApiKey?     @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+
+  // Indexes
+  @@index([organizationId, eventType])
+  @@unique([organizationId, idempotencyKey])
+  @@map("event_logs")
 }
