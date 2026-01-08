@@ -49,7 +49,7 @@ async function createUserProfiles() {
     // Crear perfil para el usuario admin
     const adminUser = await prisma.user.findFirst({
       where: { email: 'admin@klowezone.com' },
-      include: { memberships: true }
+      include: { organizationMemberships: true }
     })
 
     if (adminUser) {
@@ -62,7 +62,7 @@ async function createUserProfiles() {
 
       if (existingProfile.length === 0) {
         // Crear perfil con la primera organización como activa
-        const firstMembership = adminUser.memberships[0]
+        const firstMembership = adminUser.organizationMemberships[0]
         if (firstMembership) {
           await prisma.$executeRaw`
             INSERT INTO user_profiles (id, active_org_id)
