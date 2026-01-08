@@ -54,9 +54,12 @@ async function fixAdminSetup() {
       return
     }
 
+    // Type assertion after null check to narrow the type
+    const adminUserTyped = adminUser as NonNullable<typeof adminUser>
+
     console.log('✅ Usuario Supabase encontrado:')
-    console.log('   🆔 ID:', adminUser.id)
-    console.log('   📧 Email:', adminUser.email)
+    console.log('   🆔 ID:', adminUserTyped.id)
+    console.log('   📧 Email:', adminUserTyped.email)
 
     // 2. Eliminar usuario incorrecto de Prisma si existe
     console.log('\n2. Limpiando usuario incorrecto de Prisma...')
@@ -64,7 +67,7 @@ async function fixAdminSetup() {
       where: { email: 'admin@klowezone.com' }
     })
 
-    if (existingPrismaUser && existingPrismaUser.id !== adminUser.id) {
+    if (existingPrismaUser && existingPrismaUser.id !== adminUserTyped.id) {
       console.log('   🗑️ Eliminando usuario incorrecto:', existingPrismaUser.id)
       await prisma.user.delete({
         where: { id: existingPrismaUser.id }
@@ -75,16 +78,28 @@ async function fixAdminSetup() {
     // 3. Crear usuario correcto en Prisma
     console.log('\n3. Creando usuario correcto en Prisma...')
     let prismaUser = await prisma.user.findUnique({
-      where: { id: adminUser.id }
+      where: { id: adminUserTyped.id }
     })
 
     if (!prismaUser) {
+      // Validate required fields before creating user
+      if (!adminUserTyped.email) {
+        throw new Error(`Admin user email is missing for user id=${adminUserTyped.id}`)
+      }
+      if (!adminUserTyped.id) {
+        throw new Error('Admin user id is missing')
+      }
+      if (!adminUserTyped.created_at) {
+        throw new Error(`Admin user created_at is missing for user id=${adminUserTyped.id}`)
+      }
+
       prismaUser = await prisma.user.create({
         data: {
-          id: adminUser.id,
-          email: adminUser.email,
-          name: 'Super Admin',
-          createdAt: new Date(adminUser.created_at),
+          id: adminUserTyped.id,
+          email: adminUserTyped.email,
+          firstName: 'Super',
+          lastName: 'Admin',
+          createdAt: new Date(adminUserTyped.created_at),
           updatedAt: new Date()
         }
       })
@@ -96,13 +111,13 @@ async function fixAdminSetup() {
     // 4. Crear perfil en user_profiles
     console.log('\n4. Creando perfil en user_profiles...')
     const existingProfile = await prisma.$queryRaw<Array<{ id: string }>>`
-      SELECT id FROM user_profiles WHERE id = ${adminUser.id}
+      SELECT id FROM user_profiles WHERE id = ${adminUserTyped.id}
     `
 
     if (existingProfile.length === 0) {
       await prisma.$executeRaw`
         INSERT INTO user_profiles (id)
-        VALUES (${adminUser.id})
+        VALUES (${adminUserTyped.id})
       `
       console.log('   ✅ Perfil creado en user_profiles')
     } else {
@@ -119,6 +134,7 @@ async function fixAdminSetup() {
       defaultOrg = await prisma.organization.create({
         data: {
           name: 'KloweZone',
+          slug: 'klowezone',
           description: 'Organización principal de KloweZone'
         }
       })
@@ -131,7 +147,7 @@ async function fixAdminSetup() {
     console.log('\n6. Creando membresía OWNER...')
     const existingMembership = await prisma.organizationMember.findFirst({
       where: {
-        userId: adminUser.id,
+        userId: adminUserTyped.id,
         organizationId: defaultOrg.id
       }
     })
@@ -139,7 +155,7 @@ async function fixAdminSetup() {
     if (!existingMembership) {
       await prisma.organizationMember.create({
         data: {
-          userId: adminUser.id,
+          userId: adminUserTyped.id,
           organizationId: defaultOrg.id,
           role: 'OWNER'
         }
@@ -154,7 +170,7 @@ async function fixAdminSetup() {
     await prisma.$executeRaw`
       UPDATE user_profiles
       SET active_org_id = ${defaultOrg.id}
-      WHERE id = ${adminUser.id}
+      WHERE id = ${adminUserTyped.id}
     `
     console.log('   ✅ Organización activa configurada')
 
@@ -163,7 +179,7 @@ async function fixAdminSetup() {
     console.log('📧 Email: admin@klowezone.com')
     console.log('🔒 Password: SuperAdmin123!')
     console.log('🏢 Organización: KloweZone (OWNER)')
-    console.log('🆔 User ID:', adminUser.id)
+    console.log('🆔 User ID:', adminUserTyped.id)
     console.log('🏢 Org ID:', defaultOrg.id)
     console.log('\n✅ Ahora puedes iniciar sesión en la aplicación')
 
