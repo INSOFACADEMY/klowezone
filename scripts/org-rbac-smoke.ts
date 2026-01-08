@@ -149,7 +149,7 @@ async function orgRbacSmokeTest() {
     if (settingsTest.success) {
       console.log('   ✅ OWNER puede escribir settings')
     } else {
-      console.log(`   ❌ OWNER NO puede escribir settings: ${settingsTest.error}`)
+      console.log(`   ❌ OWNER NO puede escribir settings: ${'error' in settingsTest ? settingsTest.error : 'Unknown error'}`)
     }
 
     // Simular eliminación de workflow como OWNER
@@ -158,7 +158,7 @@ async function orgRbacSmokeTest() {
     if (workflowDeleteTest.success) {
       console.log('   ✅ OWNER puede eliminar workflows')
     } else {
-      console.log(`   ❌ OWNER NO puede eliminar workflows: ${workflowDeleteTest.error}`)
+      console.log(`   ❌ OWNER NO puede eliminar workflows: ${'error' in workflowDeleteTest ? workflowDeleteTest.error : 'Unknown error'}`)
     }
     console.log('')
 
@@ -171,7 +171,7 @@ async function orgRbacSmokeTest() {
     if (!settingsTestMember.success && settingsTestMember.statusCode === 403) {
       console.log('   ✅ MEMBER correctamente NO puede escribir settings (403)')
     } else {
-      console.log(`   ❌ ERROR: MEMBER debería NO poder escribir settings: ${settingsTestMember.error}`)
+      console.log(`   ❌ ERROR: MEMBER debería NO poder escribir settings: ${'error' in settingsTestMember ? settingsTestMember.error : 'Unknown error'}`)
     }
 
     // Simular eliminación de workflow como MEMBER (debería dar 403)
@@ -180,7 +180,7 @@ async function orgRbacSmokeTest() {
     if (!workflowDeleteTestMember.success && workflowDeleteTestMember.statusCode === 403) {
       console.log('   ✅ MEMBER correctamente NO puede eliminar workflows (403)')
     } else {
-      console.log(`   ❌ ERROR: MEMBER debería NO poder eliminar workflows: ${workflowDeleteTestMember.error}`)
+      console.log(`   ❌ ERROR: MEMBER debería NO poder eliminar workflows: ${'error' in workflowDeleteTestMember ? workflowDeleteTestMember.error : 'Unknown error'}`)
     }
     console.log('')
 
@@ -193,7 +193,7 @@ async function orgRbacSmokeTest() {
     if (settingsTestAdmin.success) {
       console.log('   ✅ ADMIN puede escribir settings')
     } else {
-      console.log(`   ❌ ADMIN NO puede escribir settings: ${settingsTestAdmin.error}`)
+      console.log(`   ❌ ADMIN NO puede escribir settings: ${'error' in settingsTestAdmin ? settingsTestAdmin.error : 'Unknown error'}`)
     }
 
     // Simular eliminación de workflow como ADMIN
@@ -202,7 +202,7 @@ async function orgRbacSmokeTest() {
     if (workflowDeleteTestAdmin.success) {
       console.log('   ✅ ADMIN puede eliminar workflows')
     } else {
-      console.log(`   ❌ ADMIN NO puede eliminar workflows: ${workflowDeleteTestAdmin.error}`)
+      console.log(`   ❌ ADMIN NO puede eliminar workflows: ${'error' in workflowDeleteTestAdmin ? workflowDeleteTestAdmin.error : 'Unknown error'}`)
     }
     console.log('')
 
@@ -215,7 +215,7 @@ async function orgRbacSmokeTest() {
     if (!settingsTestViewer.success && settingsTestViewer.statusCode === 403) {
       console.log('   ✅ VIEWER correctamente NO puede escribir settings (403)')
     } else {
-      console.log(`   ❌ ERROR: VIEWER debería NO poder escribir settings: ${settingsTestViewer.error}`)
+      console.log(`   ❌ ERROR: VIEWER debería NO poder escribir settings: ${'error' in settingsTestViewer ? settingsTestViewer.error : 'Unknown error'}`)
     }
 
     // Simular eliminación de workflow como VIEWER (debería dar 403)
@@ -224,7 +224,7 @@ async function orgRbacSmokeTest() {
     if (!workflowDeleteTestViewer.success && workflowDeleteTestViewer.statusCode === 403) {
       console.log('   ✅ VIEWER correctamente NO puede eliminar workflows (403)')
     } else {
-      console.log(`   ❌ ERROR: VIEWER debería NO poder eliminar workflows: ${workflowDeleteTestViewer.error}`)
+      console.log(`   ❌ ERROR: VIEWER debería NO poder eliminar workflows: ${'error' in workflowDeleteTestViewer ? workflowDeleteTestViewer.error : 'Unknown error'}`)
     }
     console.log('')
 
