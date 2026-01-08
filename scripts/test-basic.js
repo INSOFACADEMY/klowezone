@@ -20,8 +20,9 @@ function test(name, fn) {
     console.log(`✅ PASSED: ${name}\n`)
     passed++
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     console.log(`❌ FAILED: ${name}`)
-    console.log(`   Error: ${error.message}\n`)
+    console.log(`   Error: ${message}\n`)
     failed++
   }
 }
@@ -195,6 +196,7 @@ if (failed === 0) {
   console.log('🔧 REQUIERE ATENCIÓN ANTES DE PRODUCCIÓN')
   process.exit(1)
 }
+
 
 
 

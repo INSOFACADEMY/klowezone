@@ -54,7 +54,8 @@ async function createTestUser() {
     })
 
     if (error) {
-      console.error('❌ Error creating user:', error.message)
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('❌ Error creating user:', message)
       process.exit(1)
     }
 
@@ -78,5 +79,6 @@ async function createTestUser() {
 }
 
 createTestUser()
+
 
 
