@@ -158,7 +158,7 @@ async function apiKeySmokeTest() {
     // 4. Crear API key para OrgA
     console.log('🔑 Paso 4: Crear API key "KeyA" para OrgA...')
 
-    const { createApiKey } = await import('../src/lib/api-keys.ts')
+    const { createApiKey } = await import('../src/lib/api-keys')
     const createResult = await createApiKey(orgA.id, adminUser.id, 'KeyA')
 
     apiKeyRecord = createResult.apiKeyRecord
@@ -175,7 +175,7 @@ async function apiKeySmokeTest() {
     // 5. Verificar API key retorna orgId correcto
     console.log('✅ Paso 5: Verificar API key retorna orgId OrgA...')
 
-    const { verifyApiKey } = await import('../src/lib/api-keys.ts')
+    const { verifyApiKey } = await import('../src/lib/api-keys')
     const verification = await verifyApiKey(apiKeyA)
 
     if (verification && verification.orgId === orgA.id) {
@@ -229,7 +229,7 @@ async function apiKeySmokeTest() {
     // 8. Revocar API key
     console.log('🚫 Paso 8: Revocar API key...')
 
-    const { revokeApiKey } = await import('../src/lib/api-keys.ts')
+    const { revokeApiKey } = await import('../src/lib/api-keys')
     await revokeApiKey(apiKeyRecord.id, orgA.id, adminUser.id)
 
     console.log(`   ✅ API key revocada: ${apiKeyRecord.id}`)
@@ -306,7 +306,7 @@ async function apiKeySmokeTest() {
 async function testProtectedEndpoint(apiKey: string): Promise<any> {
   try {
     // Simular la lógica del endpoint protegido usando directamente verifyApiKey
-    const { verifyApiKey } = await import('../src/lib/api-keys.ts')
+    const { verifyApiKey } = await import('../src/lib/api-keys')
 
     const verification = await verifyApiKey(apiKey)
 

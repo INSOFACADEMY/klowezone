@@ -220,11 +220,20 @@ export async function assignCampaignToClient(clientId: string, campaignId: strin
  * Obtiene métricas de ROI para todas las campañas
  * @returns Métricas consolidadas de ROI
  */
-export async function getCampaignROIMetrics() {
+export async function getCampaignROIMetrics(limit: number = 1000, offset: number = 0) {
   try {
-    const campaigns = await prisma.aiCampaignLog.findMany({
-      orderBy: { createdAt: 'desc' }
-    })
+    // Validate and sanitize parameters
+    const sanitizedLimit = Math.min(Math.max(limit, 1), 5000) // Allow larger limit for analytics
+    const sanitizedOffset = Math.max(offset, 0)
+
+    const [campaigns, total] = await Promise.all([
+      prisma.aiCampaignLog.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: sanitizedLimit,
+        skip: sanitizedOffset
+      }),
+      prisma.aiCampaignLog.count()
+    ])
 
     const totalInvestment = campaigns.reduce((sum, campaign) => sum + campaign.spend, 0)
     const totalRevenue = campaigns.reduce((sum, campaign) => sum + campaign.revenueGenerated, 0)
@@ -235,7 +244,7 @@ export async function getCampaignROIMetrics() {
     return {
       success: true,
       data: {
-        totalCampaigns: campaigns.length,
+        totalCampaigns: total, // Total en BD, no solo los retornados
         totalInvestment,
         totalRevenue,
         totalLeads,
@@ -250,7 +259,14 @@ export async function getCampaignROIMetrics() {
           roi: campaign.spend > 0 ? ((campaign.revenueGenerated - campaign.spend) / campaign.spend) * 100 : 0,
           createdAt: campaign.createdAt
         }))
-      }
+      },
+      pageInfo: {
+        limit: sanitizedLimit,
+        offset: sanitizedOffset,
+        returned: campaigns.length,
+        hasMore: sanitizedOffset + campaigns.length < total
+      },
+      total
     }
 
   } catch (error) {

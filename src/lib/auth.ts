@@ -1,7 +1,10 @@
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key'
+const JWT_SECRET = process.env.JWT_SECRET
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required')
+}
 const JWT_EXPIRES_IN = '24h'
 
 export interface JWTPayload {
@@ -33,6 +36,8 @@ export function verifyToken(token: string): JWTPayload | null {
 export function generateRefreshToken(payload: { userId: string }): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' })
 }
+
+
 
 
 

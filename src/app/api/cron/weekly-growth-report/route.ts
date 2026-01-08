@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { apiKeyAuth, isApiKeyAuthResult } from '@/middleware/api-key-auth'
+import { requireAdminUser } from '@/middleware/admin-auth'
+import { apiKeyRateLimit, adminRateLimit } from '@/middleware/rate-limit'
+import { logAuditEvent } from '@/lib/logging-service'
+import { ADMIN_ROLES } from '@/lib/roles'
+import { isLikelyBrowserRequest, extractIPAddress } from '@/lib/security'
 import OpenAI from 'openai'
 
 // Inicializar OpenAI
@@ -46,15 +52,185 @@ interface WeeklyReport {
   }
 }
 
+
 /**
  * GET /api/cron/weekly-growth-report
  *
  * Reporte semanal automatizado que se ejecuta cada lunes.
  * Proporciona análisis Profit-First del rendimiento de campañas.
+ *
+ * AUTENTICACIÓN - 2 MODOS EXCLUYENTES:
+ *
+ * 1. MODO ADMIN UI (Browser):
+ *    - Auth: Cookie httpOnly `admin_token` (server-side validation)
+ *    - Rate limit: 50 req/5min por admin user
+ *    - Requiere rol admin (superadmin/admin/editor/analyst/support)
+ *    - Query param opcional: ?mode=system-wide (solo superadmin)
+ *    - Default: Reporte de organización activa del usuario
+ *
+ * 2. MODO API INTEGRATION (Server-to-Server):
+ *    - Auth: Header `x-api-key` con API key válida
+ *    - Rate limit: 60 req/min por API key
+ *    - Reporte limitado a organización de la API key (tenant isolation)
+ *    - Heuristic detection: Rechaza requests con headers típicos de browser (origin, sec-fetch-*)
+ *    - Propósito: Evitar uso accidental desde frontend, reducir riesgo de exposición (no prueba criptográfica)
+ *    - Seguridad: Audit logging de uso sospechoso desde browsers (sin exposición de tokens)
+ *
+ * AUDITORÍA: Todos los accesos se loguean en audit_logs (sin tokens/PII/secrets)
  */
 export async function GET(request: NextRequest) {
   try {
-    console.log('📊 Generando reporte semanal Profit-First...')
+    let authenticatedUserId: string | null = null
+    let authenticatedApiKeyId: string | null = null
+    let orgId: string | null = null
+    let authMode: 'admin_ui' | 'api_integration' = 'admin_ui'
+
+    // Check for API key authentication (server-to-server mode)
+    const apiKeyAuthResult = await apiKeyAuth(request)
+    if (isApiKeyAuthResult(apiKeyAuthResult)) {
+      // SECURITY: Reject API key usage from browsers (detect by browser-specific headers)
+      if (isLikelyBrowserRequest(request.headers)) {
+        // Get IP address (take first IP if forwarded)
+        const ipAddress = extractIPAddress(request.headers)
+
+        // Audit suspicious activity
+        await logAuditEvent({
+          userId: null,
+          organizationId: apiKeyAuthResult.orgId,
+          action: 'WEEKLY_REPORT_SUSPICIOUS_API_KEY_USAGE',
+          resourceType: 'WEEKLY_REPORT',
+          resourceId: null,
+          details: {
+            reason: 'API key used from browser (detected by browser headers)',
+            apiKeyId: apiKeyAuthResult.apiKeyId,
+            userAgent: request.headers.get('user-agent'),
+            ipAddress,
+            // Include actual header values (if present) for debugging
+            origin: request.headers.get('origin'),
+            secFetchSite: request.headers.get('sec-fetch-site'),
+            secFetchMode: request.headers.get('sec-fetch-mode'),
+            secFetchDest: request.headers.get('sec-fetch-dest'),
+            // Boolean flags for quick identification
+            hasOrigin: !!request.headers.get('origin'),
+            hasSecFetchSite: !!request.headers.get('sec-fetch-site'),
+            hasSecFetchMode: !!request.headers.get('sec-fetch-mode'),
+            hasSecFetchDest: !!request.headers.get('sec-fetch-dest')
+          }
+        })
+
+        return NextResponse.json(
+          { error: 'API keys must be used server-to-server only' },
+          { status: 403 }
+        )
+      }
+
+      // Rate limiting for API key requests
+      const rateLimitResult = await apiKeyRateLimit(request)
+      if (rateLimitResult instanceof NextResponse) {
+        return rateLimitResult
+      }
+
+      authenticatedApiKeyId = apiKeyAuthResult.apiKeyId
+      orgId = apiKeyAuthResult.orgId
+      authMode = 'api_integration'
+
+      console.log(`📊 [API Integration] Generando reporte semanal para org: ${orgId} (API Key: ${authenticatedApiKeyId})`)
+    } else {
+      // Admin UI mode - check cookie authentication
+      const adminAuth = await requireAdminUser(request)
+      if (adminAuth instanceof NextResponse) {
+        // Get IP address (take first IP if forwarded)
+        const ipAddress = extractIPAddress(request.headers)
+
+        // Audit failed authentication
+        await logAuditEvent({
+          userId: null,
+          organizationId: null,
+          action: 'WEEKLY_REPORT_ACCESS_DENIED',
+          resourceType: 'WEEKLY_REPORT',
+          resourceId: null,
+          details: {
+            reason: 'No valid authentication',
+            authMode: 'admin_ui',
+            ipAddress
+          }
+        })
+
+        return NextResponse.json(
+          { error: 'Admin authentication required' },
+          { status: 401 }
+        )
+      }
+
+      // Rate limiting for admin requests
+      const rateLimitResult = await adminRateLimit(request)
+      if (rateLimitResult instanceof NextResponse) {
+        return rateLimitResult
+      }
+
+      authenticatedUserId = adminAuth.user.id
+      authMode = 'admin_ui'
+
+      // Parse query parameters for admin mode
+      const { searchParams } = new URL(request.url)
+      const mode = searchParams.get('mode')
+
+      if (mode === 'system-wide') {
+        // Check if user is superadmin for system-wide access
+        const userRole = adminAuth.user.role?.name?.toLowerCase()
+        if (userRole !== 'superadmin') {
+          await logAuditEvent({
+            userId: authenticatedUserId,
+            organizationId: null,
+            action: 'WEEKLY_REPORT_ACCESS_DENIED',
+            resourceType: 'WEEKLY_REPORT',
+            resourceId: null,
+            details: {
+              reason: 'Insufficient permissions for system-wide mode',
+              requestedMode: 'system-wide',
+              userRole: userRole,
+              authMode: 'admin_ui'
+            }
+          })
+
+          return NextResponse.json(
+            { error: 'Superadmin role required for system-wide reports' },
+            { status: 403 }
+          )
+        }
+        orgId = null // system-wide
+      } else {
+        // Default: get user's organizations and use first active one
+        const userMemberships = await prisma.organizationMember.findMany({
+          where: { userId: authenticatedUserId },
+          include: { organization: { select: { id: true, isActive: true } } },
+          orderBy: { joinedAt: 'asc' }
+        })
+
+        const activeOrg = userMemberships.find(m => m.organization.isActive)?.organization
+        if (!activeOrg) {
+          await logAuditEvent({
+            userId: authenticatedUserId,
+            organizationId: null,
+            action: 'WEEKLY_REPORT_ACCESS_DENIED',
+            resourceType: 'WEEKLY_REPORT',
+            resourceId: null,
+            details: {
+              reason: 'No active organization membership',
+              authMode: 'admin_ui'
+            }
+          })
+
+          return NextResponse.json(
+            { error: 'No active organization membership found' },
+            { status: 403 }
+          )
+        }
+        orgId = activeOrg.id
+      }
+
+      console.log(`📊 [Admin UI] Generando reporte semanal para ${orgId ? `org: ${orgId}` : 'system-wide'} (User: ${authenticatedUserId})`)
+    }
 
     // Calcular el rango de la semana anterior (lunes a domingo)
     const now = new Date()
@@ -73,27 +249,46 @@ export async function GET(request: NextRequest) {
     console.log(`📅 Semana analizada: ${lastMonday.toISOString()} - ${lastSunday.toISOString()}`)
 
     // 1. Recopilar datos de la semana
+    const baseWhere = orgId ? {
+      organizationId: orgId,
+      createdAt: {
+        gte: lastMonday,
+        lte: lastSunday
+      }
+    } : {
+      createdAt: {
+        gte: lastMonday,
+        lte: lastSunday
+      }
+    }
+
     const campaignLogs = await prisma.aiCampaignLog.findMany({
-      where: {
-        createdAt: {
-          gte: lastMonday,
-          lte: lastSunday
-        }
-      },
+      where: baseWhere,
       orderBy: { createdAt: 'desc' }
     })
 
     // También incluir campañas existentes que tuvieron actividad (revenue generado) en la semana
-    const campaignsWithRevenue = await prisma.aiCampaignLog.findMany({
-      where: {
-        updatedAt: {
-          gte: lastMonday,
-          lte: lastSunday
-        },
-        revenueGenerated: {
-          gt: 0
-        }
+    const revenueWhere = orgId ? {
+      organizationId: orgId,
+      updatedAt: {
+        gte: lastMonday,
+        lte: lastSunday
+      },
+      revenueGenerated: {
+        gt: 0
       }
+    } : {
+      updatedAt: {
+        gte: lastMonday,
+        lte: lastSunday
+      },
+      revenueGenerated: {
+        gt: 0
+      }
+    }
+
+    const campaignsWithRevenue = await prisma.aiCampaignLog.findMany({
+      where: revenueWhere
     })
 
     // Combinar y deduplicar campañas
@@ -102,12 +297,19 @@ export async function GET(request: NextRequest) {
       ...campaignsWithRevenue.map(c => c.campaignId)
     ])
 
-    const allCampaigns = await prisma.aiCampaignLog.findMany({
-      where: {
-        campaignId: {
-          in: Array.from(allCampaignIds)
-        }
+    const allCampaignsWhere = orgId ? {
+      campaignId: {
+        in: Array.from(allCampaignIds)
+      },
+      organizationId: orgId
+    } : {
+      campaignId: {
+        in: Array.from(allCampaignIds)
       }
+    }
+
+    const allCampaigns = await prisma.aiCampaignLog.findMany({
+      where: allCampaignsWhere
     })
 
     // Calcular métricas agregadas
@@ -192,6 +394,25 @@ export async function GET(request: NextRequest) {
 
     console.log('✅ Reporte semanal generado exitosamente')
     console.log(`💰 Revenue: $${totalRevenue.toFixed(2)}, ROI: ${overallROI.toFixed(1)}%`)
+
+    // Audit successful access
+    await logAuditEvent({
+      userId: authenticatedUserId,
+      organizationId: orgId,
+      action: 'WEEKLY_REPORT_GENERATED',
+      resourceType: 'WEEKLY_REPORT',
+      resourceId: null,
+      details: {
+        authMode,
+        apiKeyId: authenticatedApiKeyId,
+        weekStart: lastMonday.toISOString(),
+        weekEnd: lastSunday.toISOString(),
+        totalCampaigns: allCampaigns.length,
+        totalRevenue,
+        overallROI,
+        outcome: 'success'
+      }
+    })
 
     return NextResponse.json({
       success: true,
@@ -341,6 +562,8 @@ function calculateProfitFirstAllocation(grossRevenue: number): WeeklyReport['pro
     profitReserve: profitFirstAllocation * 0.2
   }
 }
+
+
 
 
 

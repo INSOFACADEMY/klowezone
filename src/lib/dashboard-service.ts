@@ -244,7 +244,7 @@ export async function getUsers(page: number = 1, limit: number = 10) {
   try {
     const skip = (page - 1) * limit
 
-    const [users, total] = await Promise.all([
+    const [users, total] = await prisma.$transaction([
       prisma.user.findMany({
         skip,
         take: limit,
@@ -289,7 +289,7 @@ export async function getProjects(page: number = 1, limit: number = 10) {
   try {
     const skip = (page - 1) * limit
 
-    const [projects, total] = await Promise.all([
+    const [projects, total] = await prisma.$transaction([
       prisma.project.findMany({
         skip,
         take: limit,
@@ -334,11 +334,23 @@ export async function updateProjectStatus(projectId: string, status: string) {
 // SYSTEM CONFIGURATION FUNCTIONS
 // ========================================
 
-export async function getSystemConfig() {
+export async function getSystemConfig(orgId: string, limit: number = 50, offset: number = 0) {
   try {
-    const configs = await prisma.systemConfig.findMany({
-      orderBy: { updatedAt: 'desc' }
-    })
+    // Validate and sanitize parameters
+    const sanitizedLimit = Math.min(Math.max(limit, 1), 100)
+    const sanitizedOffset = Math.max(offset, 0)
+
+    const where = { organizationId: orgId }
+
+    const [configs, total] = await prisma.$transaction([
+      prisma.systemConfig.findMany({
+        where,
+        orderBy: { updatedAt: 'desc' },
+        take: sanitizedLimit,
+        skip: sanitizedOffset
+      }),
+      prisma.systemConfig.count({ where })
+    ])
 
     // Decrypt sensitive values
     const decryptedConfigs = configs.map(config => ({
@@ -346,10 +358,23 @@ export async function getSystemConfig() {
       value: config.isSecret ? decryptValue(config.value) : config.value
     }))
 
-    return decryptedConfigs
+    return {
+      configs: decryptedConfigs,
+      pageInfo: {
+        limit: sanitizedLimit,
+        offset: sanitizedOffset,
+        returned: decryptedConfigs.length,
+        hasMore: sanitizedOffset + decryptedConfigs.length < total
+      },
+      total
+    }
   } catch (error) {
     console.error('Error fetching system config:', error)
-    return []
+    return {
+      configs: [],
+      pageInfo: { limit, offset, returned: 0 },
+      total: 0
+    }
   }
 }
 
@@ -392,6 +417,8 @@ function decryptValue(encryptedValue: string): string {
   }
   return encryptedValue
 }
+
+
 
 
 

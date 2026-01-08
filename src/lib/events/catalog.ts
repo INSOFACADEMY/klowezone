@@ -29,11 +29,7 @@ const userRegisteredEvent = {
     firstName: z.string().min(1).max(100),
     lastName: z.string().min(1).max(100),
     registrationMethod: z.enum(['email', 'google', 'github', 'linkedin']).optional(),
-    metadata: z.object({
-      ipAddress: z.string().optional(),
-      userAgent: z.string().optional(),
-      referralSource: z.string().optional()
-    }).optional()
+    metadata: z.record(z.string(), z.any()).optional()
   }),
   example: {
     userId: '550e8400-e29b-41d4-a716-446655440000',
@@ -249,12 +245,12 @@ export type ValidationResult =
       success: false
       validated: false
       error: string
-      unvalidated: true
+      unvalidated: boolean
     }
   | {
       success: true
       validated: false
-      unvalidated: true
+      unvalidated: boolean
       data: any
     }
 
@@ -283,19 +279,19 @@ export function validateEvent(eventType: string, payload: any): ValidationResult
     }
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return {
-        success: false,
-        validated: false,
-        error: `Validation failed: ${error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`,
-        unvalidated: true
-      }
+    return {
+      success: false,
+      validated: false,
+      error: `Validation failed: ${error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`,
+      unvalidated: false
+    }
     }
 
     return {
       success: false,
       validated: false,
       error: `Validation error: ${error}`,
-      unvalidated: true
+      unvalidated: false
     }
   }
 }

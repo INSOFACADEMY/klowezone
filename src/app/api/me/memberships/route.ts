@@ -71,24 +71,38 @@ export async function GET(request: NextRequest) {
     }
     const { userId } = authResult
 
-    // Obtener todas las membresías del usuario
-    const memberships = await prisma.organizationMember.findMany({
-      where: { userId },
-      include: {
-        organization: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            description: true,
-            logo: true,
-            isActive: true,
-            createdAt: true
+    // Parse pagination parameters
+    const { searchParams } = new URL(request.url)
+    const limitParam = searchParams.get('limit')
+    const offsetParam = searchParams.get('offset')
+
+    const limit = limitParam ? Math.min(parseInt(limitParam, 10) || 50, 100) : 50
+    const offset = offsetParam ? Math.max(parseInt(offsetParam, 10) || 0, 0) : 0
+
+    // Obtener membresías del usuario con paginación
+    const where = { userId }
+
+    const [memberships, total] = await prisma.$transaction([
+      prisma.organizationMember.findMany({
+        where,
+        include: {
+          organization: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              description: true,
+              logo: true,
+              createdAt: true
+            }
           }
-        }
-      },
-      orderBy: { joinedAt: 'asc' }
-    })
+        },
+        orderBy: { joinedAt: 'asc' },
+        take: limit,
+        skip: offset
+      }),
+      prisma.organizationMember.count({ where })
+    ])
 
     return NextResponse.json({
       memberships: memberships.map(m => ({
@@ -96,7 +110,14 @@ export async function GET(request: NextRequest) {
         organization: m.organization,
         role: m.role,
         joinedAt: m.joinedAt
-      }))
+      })),
+      pageInfo: {
+        limit,
+        offset,
+        returned: memberships.length,
+        hasMore: offset + memberships.length < total
+      },
+      total
     })
 
   } catch (error) {

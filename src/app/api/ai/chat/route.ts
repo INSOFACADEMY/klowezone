@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getOrgContext } from '@/lib/tenant/getOrgContext'
+import { moderateRateLimit } from '@/middleware/rate-limit'
 import {
   getUserProjects,
   createTaskForUser,
@@ -259,45 +261,33 @@ const availableFunctions = {
 // AUTHENTICATION MIDDLEWARE
 // ========================================
 
-async function authenticateUser(request: NextRequest): Promise<{ userId: string } | NextResponse> {
+async function authenticateUser(request: NextRequest): Promise<{ userId: string; orgId: string; orgRole: string } | NextResponse> {
   try {
-    // Get token from Authorization header
-    const authHeader = request.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '')
+    // Use standard tenant context authentication
+    const orgContext = await getOrgContext(request)
+    return {
+      userId: orgContext.userId,
+      orgId: orgContext.orgId,
+      orgRole: orgContext.orgRole
+    }
 
-    if (!token) {
+  } catch (error: any) {
+    console.error('Authentication error:', error)
+
+    if (error.message === 'NO_AUTH') {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       )
     }
 
-    // Verify token
-    const payload = verifyToken(token)
-    if (!payload) {
+    if (error.message === 'NO_ORG') {
       return NextResponse.json(
-        { error: 'Invalid token' },
-        { status: 401 }
+        { error: 'Organization membership required' },
+        { status: 403 }
       )
     }
 
-    // Verify user exists and is active
-    const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
-      select: { isActive: true }
-    })
-
-    if (!user || !user.isActive) {
-      return NextResponse.json(
-        { error: 'User not found or inactive' },
-        { status: 404 }
-      )
-    }
-
-    return { userId: payload.userId }
-
-  } catch (error) {
-    console.error('Authentication error:', error)
     return NextResponse.json(
       { error: 'Authentication failed' },
       { status: 500 }
@@ -398,12 +388,18 @@ async function executeFunction(functionName: string, args: any, userId: string):
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const rateLimitResult = await moderateRateLimit(request)
+    if (rateLimitResult instanceof NextResponse) {
+      return rateLimitResult
+    }
+
     // Authenticate user
     const authResult = await authenticateUser(request)
     if (authResult instanceof NextResponse) {
       return authResult
     }
-    const { userId } = authResult
+    const { userId, orgId, orgRole } = authResult
 
     // Parse request body
     const body = await request.json()

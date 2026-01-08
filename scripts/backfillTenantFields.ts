@@ -103,7 +103,7 @@ async function backfillTenantFields() {
 
     // 3. Backfill AIProvider
     console.log('📋 Paso 3: Backfill AIProvider...')
-    const aiProviderCount = await prisma.aIProvider.count()
+    const aiProviderCount = await prisma.aiProvider.count()
     if (aiProviderCount > 0) {
       await prisma.$executeRaw`
         UPDATE ai_providers

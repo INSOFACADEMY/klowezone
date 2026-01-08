@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getWorkflows, createWorkflow, updateWorkflow, deleteWorkflow, toggleWorkflow } from '@/lib/automation-services'
 import { requireAdminUser, hasAnyPermission } from '@/middleware/admin-auth'
 import { getOrgContext, TenantError } from '@/lib/tenant/getOrgContext'
+import { validateApiRequest, createAutomationSchema } from '@/lib/validation/input-validation'
 
 // GET /api/admin/automations - List all workflows
 export async function GET(request: NextRequest) {
@@ -76,23 +77,25 @@ export async function POST(request: NextRequest) {
       throw error
     }
 
-    const body = await request.json()
+    // Validate and sanitize input
+    const validation = await validateApiRequest(createAutomationSchema, request, {
+      sanitizeStrings: true,
+      sanitizeHtml: false
+    })
 
-    // Basic validation
-    if (!body.name || !body.trigger || !Array.isArray(body.actions)) {
-      return NextResponse.json(
-        { error: 'Missing required fields: name, trigger, actions' },
-        { status: 400 }
-      )
+    if (!validation.success) {
+      return validation.response
     }
 
+    const { name, description, trigger, actions, isActive = true } = validation.data
+
     const workflowData = {
-      name: body.name,
-      description: body.description,
-      isActive: body.isActive || false,
-      trigger: body.trigger,
-      triggerConfig: body.triggerConfig || {},
-      actions: body.actions,
+      name,
+      description,
+      isActive,
+      trigger,
+      triggerConfig: {},
+      actions,
       createdBy: orgContext.userId // Use real user ID from org context
     }
 

@@ -27,6 +27,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { createClient, insertTestClients } from "@/lib/clients";
 import { createProject, updateProject, deleteProject } from "@/lib/projects";
 import { WhatsAppIconButton } from "@/components/ui/whatsapp-button";
+import AppHeader from "@/components/navigation/AppHeader";
 
 // Zod schemas for form validation
 const clientSchema = z.object({

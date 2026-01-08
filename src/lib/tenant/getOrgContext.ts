@@ -140,3 +140,5 @@ export async function getOrgContext(request?: NextRequest): Promise<OrgContext> 
     throw new TenantError('INTERNAL_ERROR')
   }
 }
+
+export { getCurrentUserId }

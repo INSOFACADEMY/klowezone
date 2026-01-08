@@ -37,3 +37,6 @@ console.log('1. Ve a http://localhost:3000/login');
 console.log('2. Email: admin@klowezone.com');
 console.log('3. Password: SuperAdmin123!');
 console.log('4. Deberías poder acceder al panel de admin en /admin\n');
+
+
+

@@ -71,24 +71,39 @@ export async function GET(request: NextRequest) {
     }
     const { userId } = authResult
 
-    // Obtener todas las membresías del usuario con detalles completos
-    const memberships = await prisma.organizationMember.findMany({
-      where: { userId },
-      include: {
-        organization: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            description: true,
-            logo: true,
-            isActive: true,
-            createdAt: true
+    // Parse pagination parameters
+    const { searchParams } = new URL(request.url)
+    const limitParam = searchParams.get('limit')
+    const offsetParam = searchParams.get('offset')
+
+    const limit = limitParam ? Math.min(parseInt(limitParam, 10) || 50, 100) : 50
+    const offset = offsetParam ? Math.max(parseInt(offsetParam, 10) || 0, 0) : 0
+
+    // Obtener membresías del usuario con detalles completos y paginación
+    const where = { userId }
+
+    const [memberships, total] = await prisma.$transaction([
+      prisma.organizationMember.findMany({
+        where,
+        include: {
+          organization: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              description: true,
+              logo: true,
+              isActive: true,
+              createdAt: true
+            }
           }
-        }
-      },
-      orderBy: { joinedAt: 'asc' }
-    })
+        },
+        orderBy: { joinedAt: 'asc' },
+        take: limit,
+        skip: offset
+      }),
+      prisma.organizationMember.count({ where })
+    ])
 
     // Obtener organización activa actual (desde user_profiles)
     let activeOrgId: string | null = null
@@ -118,7 +133,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       organizations,
       currentOrgId: activeOrgId,
-      total: organizations.length
+      pageInfo: {
+        limit,
+        offset,
+        returned: organizations.length,
+        hasMore: offset + organizations.length < total
+      },
+      total
     })
 
   } catch (error) {
@@ -129,3 +150,5 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
+

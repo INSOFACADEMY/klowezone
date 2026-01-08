@@ -159,7 +159,7 @@ async function webhookSmokeTest() {
     // 4. Crear API key para OrgA
     console.log('🔑 Paso 4: Crear API key "WebhookKey" para OrgA...')
 
-    const { createApiKey } = await import('../src/lib/api-keys.ts')
+    const { createApiKey } = await import('../src/lib/api-keys')
     const createResult = await createApiKey(orgA.id, adminUser.id, 'WebhookKey')
 
     apiKeyRecord = createResult.apiKeyRecord
@@ -325,7 +325,7 @@ async function webhookSmokeTest() {
     // 10. Revocar API key y verificar que da 401
     console.log('🚫 Paso 10: Revocar API key y verificar 401...')
 
-    const { revokeApiKey } = await import('../src/lib/api-keys.ts')
+    const { revokeApiKey } = await import('../src/lib/api-keys')
     await revokeApiKey(apiKeyRecord.id, orgA.id, adminUser.id)
 
     console.log(`   ✅ API key revocada: ${apiKeyRecord.id}`)
@@ -429,8 +429,8 @@ async function webhookSmokeTest() {
 async function postWebhookEvent(apiKey: string, payload: any): Promise<any> {
   try {
     // Simular la lógica del endpoint de webhooks
-    const { apiKeyAuth, isApiKeyAuthResult } = await import('../src/middleware/api-key-auth.ts')
-    const { ingestWebhookEvent } = await import('../src/lib/webhook-service.ts')
+    const { apiKeyAuth, isApiKeyAuthResult } = await import('../src/middleware/api-key-auth')
+    const { ingestWebhookEvent } = await import('../src/lib/webhook-service')
 
     // Crear un mock request con el header x-api-key
     const mockRequest = {
@@ -502,3 +502,5 @@ if (require.main === module) {
 }
 
 export { webhookSmokeTest }
+
+

@@ -140,7 +140,7 @@ async function testApiKeys() {
     // 4. Probar creación de API key
     console.log('🔑 Paso 4: Probar creación de API key...')
 
-    const { createApiKey } = await import('../src/lib/api-keys.ts')
+    const { createApiKey } = await import('../src/lib/api-keys')
 
     const createResult = await createApiKey(testOrg.id, adminUser.id, 'Test API Key')
     createdApiKey = createResult.apiKeyRecord
@@ -157,7 +157,7 @@ async function testApiKeys() {
     // 5. Probar listado de API keys
     console.log('📋 Paso 5: Probar listado de API keys...')
 
-    const { listApiKeys } = await import('../src/lib/api-keys.ts')
+    const { listApiKeys } = await import('../src/lib/api-keys')
 
     const apiKeys = await listApiKeys(testOrg.id)
     console.log(`   ✅ API keys encontradas: ${apiKeys.length}`)
@@ -169,7 +169,7 @@ async function testApiKeys() {
     // 6. Probar verificación de API key
     console.log('✅ Paso 6: Probar verificación de API key...')
 
-    const { verifyApiKey } = await import('../src/lib/api-keys.ts')
+    const { verifyApiKey } = await import('../src/lib/api-keys')
 
     const verification = await verifyApiKey(apiKeyPlain)
     if (verification) {
@@ -196,7 +196,7 @@ async function testApiKeys() {
     // 8. Probar revocación de API key
     console.log('🚫 Paso 8: Probar revocación de API key...')
 
-    const { revokeApiKey } = await import('../src/lib/api-keys.ts')
+    const { revokeApiKey } = await import('../src/lib/api-keys')
 
     await revokeApiKey(createdApiKey.id, testOrg.id, adminUser.id)
     console.log(`   ✅ API key revocada: ${createdApiKey.id}`)

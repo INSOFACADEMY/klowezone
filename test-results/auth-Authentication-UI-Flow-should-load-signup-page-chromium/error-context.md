@@ -1,0 +1,62 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - button "Volver al inicio" [ref=e6]:
+        - img
+        - text: Volver al inicio
+      - heading "Klowezone" [level=1] [ref=e8]
+      - generic [ref=e9]:
+        - img
+        - text: Prueba gratis por 14 días
+      - heading "Crea tu cuenta" [level=2] [ref=e10]
+      - paragraph [ref=e11]: Únete a miles de profesionales que confían en nosotros
+    - generic [ref=e13]:
+      - generic [ref=e14]:
+        - generic [ref=e15]: Registro
+        - generic [ref=e16]: Completa tus datos para comenzar
+      - generic [ref=e18]:
+        - generic [ref=e19]:
+          - generic [ref=e20]: Nombre completo
+          - generic [ref=e21]:
+            - img [ref=e22]
+            - textbox "Nombre completo" [ref=e25]:
+              - /placeholder: Tu nombre completo
+        - generic [ref=e26]:
+          - generic [ref=e27]: Email
+          - generic [ref=e28]:
+            - img [ref=e29]
+            - textbox "Email" [ref=e32]:
+              - /placeholder: tu@email.com
+        - generic [ref=e33]:
+          - generic [ref=e34]: Contraseña
+          - generic [ref=e35]:
+            - img [ref=e36]
+            - textbox "Contraseña" [ref=e39]:
+              - /placeholder: Mínimo 6 caracteres
+            - button [ref=e40]:
+              - img [ref=e41]
+        - generic [ref=e44]:
+          - generic [ref=e45]: Confirmar contraseña
+          - generic [ref=e46]:
+            - img [ref=e47]
+            - textbox "Confirmar contraseña" [ref=e50]:
+              - /placeholder: Repite tu contraseña
+            - button [ref=e51]:
+              - img [ref=e52]
+        - button "Crear cuenta gratuita" [ref=e55]
+        - paragraph [ref=e56]:
+          - text: Al registrarte, aceptas nuestros
+          - link "términos de servicio" [ref=e57] [cursor=pointer]:
+            - /url: "#"
+          - text: "y"
+          - link "política de privacidad" [ref=e58] [cursor=pointer]:
+            - /url: "#"
+        - paragraph [ref=e60]:
+          - text: ¿Ya tienes cuenta?
+          - button "Inicia sesión" [ref=e61]
+  - region "Notifications alt+T"
+  - button
+```

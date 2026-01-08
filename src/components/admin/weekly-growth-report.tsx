@@ -66,6 +66,7 @@ export function WeeklyGrowthReport() {
       setLoading(true)
       setError(null)
 
+      // No need to read admin_token from client - endpoint reads httpOnly cookie server-side
       const response = await fetch('/api/cron/weekly-growth-report')
       const data: ReportResponse = await response.json()
 
@@ -315,6 +316,8 @@ export function WeeklyGrowthReport() {
     </div>
   )
 }
+
+
 
 
 

@@ -1,6 +1,9 @@
 import { Crown, BarChart3, Users, Settings, FileText, TrendingUp, Shield, Zap } from 'lucide-react'
 import Link from 'next/link'
 import AdminProtection from '@/components/admin/AdminProtection'
+import AppHeader from '@/components/navigation/AppHeader'
+import { cookies } from 'next/headers'
+import { verifyToken } from '@/lib/auth'
 
 function QuickActionCard({ title, description, href, icon: Icon, color }: {
   title: string
@@ -27,6 +30,21 @@ function QuickActionCard({ title, description, href, icon: Icon, color }: {
 }
 
 export default async function AdminPage() {
+  // Obtener información del usuario para el header
+  const cookieStore = await cookies()
+  const token = cookieStore.get('admin_token')?.value
+  let userEmail = ''
+
+  if (token) {
+    try {
+      const payload = verifyToken(token)
+      // Para simplificar, usamos el email del admin conocido
+      // En producción podrías obtener el email de la base de datos
+      userEmail = 'admin@klowezone.com'
+    } catch (error) {
+      // Token inválido, se manejará en AdminProtection
+    }
+  }
   const quickActions = [
     {
       title: 'Dashboard',

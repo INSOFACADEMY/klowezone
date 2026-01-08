@@ -1,0 +1,47 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - link "Volver al inicio" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - button "Volver al inicio" [ref=e7]:
+          - img
+          - text: Volver al inicio
+      - heading "Klowezone" [level=1] [ref=e9]
+      - generic [ref=e10]:
+        - img
+        - text: Accede a tu cuenta
+      - heading "Iniciar Sesión" [level=2] [ref=e11]
+      - paragraph [ref=e12]: Bienvenido de vuelta. Ingresa tus credenciales.
+    - generic [ref=e14]:
+      - generic [ref=e15]:
+        - generic [ref=e16]: Acceder
+        - generic [ref=e17]: Ingresa tus datos para continuar
+      - generic [ref=e19]:
+        - generic [ref=e20]:
+          - generic [ref=e21]: Email
+          - generic [ref=e22]:
+            - img [ref=e23]
+            - textbox "Email" [ref=e26]:
+              - /placeholder: tu@email.com
+        - generic [ref=e27]:
+          - generic [ref=e28]: Contraseña
+          - generic [ref=e29]:
+            - img [ref=e30]
+            - textbox "Contraseña" [ref=e33]:
+              - /placeholder: Tu contraseña
+            - button [ref=e34]:
+              - img [ref=e35]
+        - button "Iniciar Sesión" [ref=e38]
+        - button "¿Olvidaste tu contraseña?" [ref=e40]
+        - paragraph [ref=e42]:
+          - text: ¿No tienes cuenta?
+          - link "Regístrate gratis" [ref=e43] [cursor=pointer]:
+            - /url: /signup
+  - region "Notifications alt+T"
+  - button [ref=e44]:
+    - img [ref=e45]
+  - alert [ref=e48]
+```

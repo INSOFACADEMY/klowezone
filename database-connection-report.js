@@ -65,3 +65,6 @@ console.log('   • No hay restricciones de IP');
 console.log('   • Las credenciales no expiraron');
 console.log('='.repeat(70));
 
+
+
+

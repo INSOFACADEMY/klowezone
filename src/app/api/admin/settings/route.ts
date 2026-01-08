@@ -4,6 +4,7 @@ import { getOrgContext, TenantError } from '@/lib/tenant/getOrgContext'
 import { validateOrgPermission } from '@/lib/rbac/org-rbac'
 import { prisma } from '@/lib/prisma'
 import { encrypt, decrypt } from '@/lib/encryption'
+import { validateApiRequest, createSettingsSchema } from '@/lib/validation/input-validation'
 
 export async function GET(request: NextRequest) {
   try {
@@ -27,11 +28,26 @@ export async function GET(request: NextRequest) {
       throw error
     }
 
-    // Get system configuration settings for the organization
-    const settings = await prisma.systemConfig.findMany({
-      where: { organizationId: orgContext.orgId },
-      orderBy: { createdAt: 'desc' }
-    })
+    // Parse pagination parameters
+    const { searchParams } = new URL(request.url)
+    const limitParam = searchParams.get('limit')
+    const offsetParam = searchParams.get('offset')
+
+    const limit = limitParam ? Math.min(parseInt(limitParam, 10) || 50, 100) : 50
+    const offset = offsetParam ? Math.max(parseInt(offsetParam, 10) || 0, 0) : 0
+
+    // Get system configuration settings for the organization with pagination
+    const where = { organizationId: orgContext.orgId }
+
+    const [settings, total] = await prisma.$transaction([
+      prisma.systemConfig.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset
+      }),
+      prisma.systemConfig.count({ where })
+    ])
 
     // Decrypt sensitive values for admin users
     const processedSettings = settings.map(setting => ({
@@ -47,7 +63,14 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: processedSettings
+      data: processedSettings,
+      pageInfo: {
+        limit,
+        offset,
+        returned: processedSettings.length,
+        hasMore: offset + processedSettings.length < total
+      },
+      total
     })
 
   } catch (error) {
@@ -90,15 +113,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const body = await request.json()
-    const { key, value, isSecret = false, category, description } = body
+    // Validate and sanitize input
+    const validation = await validateApiRequest(createSettingsSchema, request, {
+      sanitizeStrings: true,
+      sanitizeHtml: false
+    })
 
-    if (!key || value === undefined) {
-      return NextResponse.json(
-        { error: 'Key and value are required' },
-        { status: 400 }
-      )
+    if (!validation.success) {
+      return validation.response
     }
+
+    const { key, value, isSecret = false, category, description } = validation.data
 
     // Encrypt value if it's marked as secret
     const processedValue = isSecret ? encrypt(value) : value

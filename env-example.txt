@@ -26,8 +26,11 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key-here
 # Master key for AES-256-GCM encryption (64 characters hex)
 MASTER_KEY=your-64-character-hex-master-key-here
 
-# JWT Secret for authentication tokens
+# JWT Secret for authentication tokens (REQUIRED)
 JWT_SECRET=your-very-secure-jwt-secret-key-here
+
+# Redis for distributed rate limiting (REQUIRED for production)
+REDIS_URL=redis://localhost:6379
 
 # =============================================
 # EMAIL SERVICE (RESEND)

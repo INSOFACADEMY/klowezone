@@ -127,7 +127,7 @@ export async function testEmailConnection(providerId: string): Promise<{ success
 
 export async function getAIProviders() {
   try {
-    const providers = await prisma.aIProvider.findMany({
+    const providers = await prisma.aiProvider.findMany({
       orderBy: { createdAt: 'desc' }
     })
 
@@ -146,7 +146,7 @@ export async function createAIProvider(data: AIProviderConfig) {
     const validatedConfig = validateAIConfig(data.provider, data.config)
     const encryptedConfig = encryptObject(validatedConfig)
 
-    return await prisma.aIProvider.create({
+    return await prisma.aiProvider.create({
       data: {
         name: data.name,
         provider: data.provider,
@@ -173,7 +173,7 @@ export async function updateAIProvider(id: string, data: Partial<AIProviderConfi
       encryptedConfig = encryptObject(validatedConfig)
     }
 
-    return await prisma.aIProvider.update({
+    return await prisma.aiProvider.update({
       where: { id },
       data: {
         ...(data.name && { name: data.name }),
@@ -194,7 +194,7 @@ export async function updateAIProvider(id: string, data: Partial<AIProviderConfi
 
 export async function deleteAIProvider(id: string) {
   try {
-    return await prisma.aIProvider.delete({
+    return await prisma.aiProvider.delete({
       where: { id }
     })
   } catch (error) {
@@ -205,7 +205,7 @@ export async function deleteAIProvider(id: string) {
 
 export async function testAIConnection(providerId: string): Promise<{ success: boolean; message: string }> {
   try {
-    const provider = await prisma.aIProvider.findUnique({
+    const provider = await prisma.aiProvider.findUnique({
       where: { id: providerId }
     })
 
@@ -545,6 +545,9 @@ async function testLocalConnection(config: any): Promise<{ success: boolean; mes
   // TODO: Implement actual local storage test
   return { success: true, message: 'Directorio local accesible' }
 }
+
+
+
 
 
 

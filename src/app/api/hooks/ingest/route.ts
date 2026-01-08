@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiKeyAuth, isApiKeyAuthResult } from '@/middleware/api-key-auth'
-import { ingestWebhookEvent, webhookPayloadSchema } from '@/lib/webhook-service'
+import { ingestWebhookEvent } from '@/lib/webhook-service'
+import { validateApiRequest, webhookPayloadSchema } from '@/lib/validation/input-validation'
 import { prisma } from '@/lib/prisma'
 
 // POST /api/hooks/ingest - Ingest webhook events
@@ -15,31 +16,18 @@ export async function POST(request: NextRequest) {
 
     const { orgId, apiKeyId, apiKeyName } = authResult
 
-    // Get and validate request body
-    let body: any
-    try {
-      body = await request.json()
-    } catch (error) {
-      return NextResponse.json(
-        { error: 'Invalid JSON body', code: 'INVALID_JSON' },
-        { status: 400 }
-      )
+    // Validate and sanitize webhook payload
+    const validation = await validateApiRequest(webhookPayloadSchema, request, {
+      sanitizeStrings: true,
+      sanitizeHtml: false,
+      maxBodySize: 1024 * 1024 // 1MB for webhook payloads
+    })
+
+    if (!validation.success) {
+      return validation.response
     }
 
-    // Validate payload with Zod
-    const validationResult = webhookPayloadSchema.safeParse(body)
-    if (!validationResult.success) {
-      return NextResponse.json(
-        {
-          error: 'Validation failed',
-          code: 'VALIDATION_ERROR',
-          details: validationResult.error.errors
-        },
-        { status: 400 }
-      )
-    }
-
-    const payload = validationResult.data
+    const payload = validation.data
 
     // Check payload size (basic protection against giant payloads)
     const payloadSize = JSON.stringify(payload.payload).length

@@ -350,6 +350,7 @@ export const logError = logger.logError.bind(logger)
 export const logWarning = logger.logWarning.bind(logger)
 export const logInfo = logger.logInfo.bind(logger)
 export const logSecurity = logger.logSecurity.bind(logger)
+export const logAuditEvent = logger.logAuditEvent.bind(logger)
 
 
 

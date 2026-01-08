@@ -8,11 +8,14 @@ async function testWeeklyReport() {
   console.log('🧪 Probando endpoint del reporte semanal Profit-First...')
 
   try {
-    // Hacer la petición al endpoint
+    // Hacer la petición al endpoint (necesita API key válida)
+    const API_KEY = process.env.TEST_API_KEY || 'your-test-api-key-here'
+
     const response = await fetch('http://localhost:3000/api/cron/weekly-growth-report', {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-api-key': API_KEY
       }
     })
 
@@ -87,6 +90,8 @@ async function testWeeklyReport() {
 
 // Ejecutar la prueba
 testWeeklyReport().catch(console.error)
+
+
 
 
 

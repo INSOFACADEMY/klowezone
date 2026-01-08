@@ -269,11 +269,18 @@ async function main() {
   ]
 
   for (const config of defaultConfigs) {
-    await prisma.systemConfig.upsert({
-      where: { key: config.key },
-      update: {},
-      create: config,
+    const existingConfig = await prisma.systemConfig.findFirst({
+      where: {
+        key: config.key,
+        organizationId: null, // Global configs
+      },
     })
+
+    if (!existingConfig) {
+      await prisma.systemConfig.create({
+        data: config,
+      })
+    }
   }
 
   console.log('✅ Seed completed successfully!')

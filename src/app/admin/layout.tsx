@@ -1,39 +1,24 @@
-import { ReactNode } from 'react'
-import { AdminSidebar } from '@/components/admin/admin-sidebar-simple'
-import { AdminTopbar } from '@/components/admin/admin-topbar-simple'
-import { AdminCommandPalette } from '@/components/admin/admin-command-palette-simple'
-import { JobProcessor } from '@/components/admin/job-processor'
-import { NotificationToast } from '@/components/admin/notification-toast'
+import AppHeader from '@/components/navigation/AppHeader'
+import AdminProtection from '@/components/admin/AdminProtection'
 
-interface AdminLayoutProps {
-  children: ReactNode
-}
-
-export default function AdminLayout({ children }: AdminLayoutProps) {
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex">
-      {/* Sidebar */}
-      <AdminSidebar />
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        {/* Topbar */}
-        <AdminTopbar />
-
-        {/* Page Content */}
-        <main className="flex-1 p-6 overflow-auto">
+    <AdminProtection>
+      <div className="min-h-screen bg-slate-950">
+        <AppHeader
+          showBackButton={true}
+          showHomeButton={true}
+          isAdmin={true}
+          userEmail="admin@klowezone.com"
+        />
+        <div className="p-6">
           {children}
-        </main>
+        </div>
       </div>
-
-      {/* Command Palette */}
-      <AdminCommandPalette />
-
-      {/* Job Processor - Invisible background component */}
-      <JobProcessor />
-
-      {/* CGO Pulse Notifications */}
-      <NotificationToast />
-    </div>
+    </AdminProtection>
   )
 }

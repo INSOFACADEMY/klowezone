@@ -99,3 +99,6 @@ echo "  await prisma.\$disconnect();"
 echo "})();"
 echo "\""
 
+
+
+

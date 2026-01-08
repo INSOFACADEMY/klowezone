@@ -27,28 +27,28 @@ async function main() {
       orgCount = await prisma.organization.count();
       console.log(`🏢 organizations: ✅ EXISTE (${orgCount} registros)`);
     } catch (error) {
-      console.log(`🏢 organizations: ❌ NO EXISTE o ERROR (${error.message})`);
+      console.log(`🏢 organizations: ❌ NO EXISTE o ERROR (${error instanceof Error ? error.message : String(error)})`);
     }
 
     try {
       memberCount = await prisma.organizationMember.count();
       console.log(`👥 organization_members: ✅ EXISTE (${memberCount} registros)`);
     } catch (error) {
-      console.log(`👥 organization_members: ❌ NO EXISTE o ERROR (${error.message})`);
+      console.log(`👥 organization_members: ❌ NO EXISTE o ERROR (${error instanceof Error ? error.message : String(error)})`);
     }
 
     try {
       apiKeyCount = await prisma.apiKey.count();
       console.log(`🔑 api_keys: ✅ EXISTE (${apiKeyCount} registros)`);
     } catch (error) {
-      console.log(`🔑 api_keys: ❌ NO EXISTE o ERROR (${error.message})`);
+      console.log(`🔑 api_keys: ❌ NO EXISTE o ERROR (${error instanceof Error ? error.message : String(error)})`);
     }
 
     try {
       eventLogCount = await prisma.eventLog.count();
       console.log(`📝 event_logs: ✅ EXISTE (${eventLogCount} registros)`);
     } catch (error) {
-      console.log(`📝 event_logs: ❌ NO EXISTE o ERROR (${error.message})`);
+      console.log(`📝 event_logs: ❌ NO EXISTE o ERROR (${error instanceof Error ? error.message : String(error)})`);
     }
 
     // Verificar user_profiles con active_org_id
@@ -99,7 +99,7 @@ async function main() {
     }
 
   } catch (error) {
-    console.error("❌ ERROR GENERAL:", error.message);
+    console.error("❌ ERROR GENERAL:", error instanceof Error ? error.message : String(error));
     console.log("\n🔧 SOLUCIONES:");
     console.log("1. Verificar DATABASE_URL en .env.local");
     console.log("2. Ejecutar: npx prisma db push");

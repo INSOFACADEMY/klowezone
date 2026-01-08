@@ -237,3 +237,6 @@ const filteredOrganizations = useMemo(() => {
 *Auditoría realizada el: [FECHA]*
 *Versión probada: [VERSION]*
 *Browser: [BROWSER]*
+
+
+

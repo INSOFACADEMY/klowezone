@@ -7,7 +7,8 @@
  */
 
 import { config } from 'dotenv'
-import { PrismaClient } from '@prisma/adapter-pg'
+import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 import { Pool } from 'pg'
 
 // Load environment variables
@@ -167,3 +168,5 @@ if (require.main === module) {
 }
 
 export { backfillProjectTenant }
+
+
