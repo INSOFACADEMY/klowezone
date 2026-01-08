@@ -127,7 +127,8 @@ export async function testEmailConnection(providerId: string): Promise<{ success
 
 export async function getAIProviders() {
   try {
-    const providers = await prisma.aiProvider.findMany({
+    // Prisma delegate for AIProvider is aIProvider due to acronym casing
+    const providers = await prisma.aIProvider.findMany({
       orderBy: { createdAt: 'desc' }
     })
 
@@ -146,7 +147,7 @@ export async function createAIProvider(data: AIProviderConfig) {
     const validatedConfig = validateAIConfig(data.provider, data.config)
     const encryptedConfig = encryptObject(validatedConfig)
 
-    return await prisma.aiProvider.create({
+    return await prisma.aIProvider.create({
       data: {
         name: data.name,
         provider: data.provider,
@@ -173,7 +174,7 @@ export async function updateAIProvider(id: string, data: Partial<AIProviderConfi
       encryptedConfig = encryptObject(validatedConfig)
     }
 
-    return await prisma.aiProvider.update({
+    return await prisma.aIProvider.update({
       where: { id },
       data: {
         ...(data.name && { name: data.name }),
@@ -194,7 +195,7 @@ export async function updateAIProvider(id: string, data: Partial<AIProviderConfi
 
 export async function deleteAIProvider(id: string) {
   try {
-    return await prisma.aiProvider.delete({
+    return await prisma.aIProvider.delete({
       where: { id }
     })
   } catch (error) {
@@ -205,7 +206,7 @@ export async function deleteAIProvider(id: string) {
 
 export async function testAIConnection(providerId: string): Promise<{ success: boolean; message: string }> {
   try {
-    const provider = await prisma.aiProvider.findUnique({
+    const provider = await prisma.aIProvider.findUnique({
       where: { id: providerId }
     })
 

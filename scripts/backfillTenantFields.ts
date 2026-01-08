@@ -103,7 +103,8 @@ async function backfillTenantFields() {
 
     // 3. Backfill AIProvider
     console.log('📋 Paso 3: Backfill AIProvider...')
-    const aiProviderCount = await prisma.aiProvider.count()
+    // Prisma delegate for AIProvider is aIProvider due to acronym casing
+    const aiProviderCount = await prisma.aIProvider.count()
     if (aiProviderCount > 0) {
       await prisma.$executeRaw`
         UPDATE ai_providers
