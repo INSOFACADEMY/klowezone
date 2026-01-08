@@ -8,36 +8,16 @@ import { resolve } from 'path'
 import { hashPassword } from '../src/lib/auth'
 import { randomBytes } from 'crypto'
 
-// Load environment variables
-const envLocalPath = resolve('.env.local')
-const envPath = resolve('.env')
-
-if (existsSync(envLocalPath)) {
-  config({ path: envLocalPath })
-} else if (existsSync(envPath)) {
-  config({ path: envPath })
+// Types and helper functions
+interface AdminSetupParams {
+  email?: string
+  userId?: string
+  password?: string
+  orgSlug?: string
+  orgName?: string
 }
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-const connectionString = process.env.DATABASE_URL
-
-if (!supabaseUrl || !supabaseKey || !connectionString) {
-  console.error('❌ Missing environment variables')
-  process.exit(1)
-}
-
-const pool = new Pool({ connectionString })
-const adapter = new PrismaPg(pool)
-
-const prisma = new PrismaClient({
-  adapter,
-  log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-})
-
-const supabase = createClient(supabaseUrl, supabaseKey)
-
-async function getOrCreateSuperAdminRole(): Promise<string> {
+async function getOrCreateSuperAdminRole(prisma: PrismaClient): Promise<string> {
   // Buscar role superadmin existente
   let superAdminRole = await prisma.role.findUnique({
     where: { name: 'superadmin' }
@@ -60,11 +40,11 @@ async function getOrCreateSuperAdminRole(): Promise<string> {
   return superAdminRole.id
 }
 
-async function generateAdminPassword(): Promise<string> {
-  // Usar password de env var si existe, sino generar uno random
-  const envPassword = process.env.ADMIN_INITIAL_PASSWORD
+async function generateAdminPassword(params: AdminSetupParams): Promise<string> {
+  // Usar password de env var si existe, sino usar parámetro, sino generar uno random
+  const envPassword = process.env.ADMIN_INITIAL_PASSWORD || params.password
   if (envPassword) {
-    console.log('   🔐 Usando password de ADMIN_INITIAL_PASSWORD')
+    console.log('   🔐 Usando password proporcionado')
     return envPassword
   }
 
@@ -75,6 +55,106 @@ async function generateAdminPassword(): Promise<string> {
 
   return randomPassword
 }
+
+async function getOrCreateAdminUser(
+  prisma: PrismaClient,
+  params: AdminSetupParams & { email: string; userId: string; roleId: string }
+): Promise<any> {
+  // Buscar usuario existente
+  let adminUser = await prisma.user.findUnique({
+    where: { id: params.userId }
+  })
+
+  if (!adminUser) {
+    // Generar password y hashearlo
+    console.log('   🔐 Generando password para admin...')
+    const plainPassword = await generateAdminPassword(params)
+    const hashedPassword = await hashPassword(plainPassword)
+
+    adminUser = await prisma.user.create({
+      data: {
+        id: params.userId,
+        email: params.email,
+        password: hashedPassword,
+        roleId: params.roleId,
+        firstName: 'Super',
+        lastName: 'Admin',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    })
+    console.log('   ✅ Usuario admin creado en Prisma:', adminUser.id)
+  } else {
+    console.log('   ℹ️ Usuario admin ya existe en Prisma:', adminUser.id)
+  }
+
+  return adminUser
+}
+
+async function getOrCreateDefaultOrganization(
+  prisma: PrismaClient,
+  params: AdminSetupParams
+): Promise<any> {
+  const orgName = params.orgName || 'KloweZone'
+
+  // Buscar organización existente por nombre
+  let defaultOrg = await prisma.organization.findFirst({
+    where: { name: orgName }
+  })
+
+  if (!defaultOrg) {
+    // Si no hay org existente, usar el slug proporcionado o generar uno basado en el nombre
+    const finalSlug = params.orgSlug || orgName.toLowerCase().replace(/\s+/g, '-')
+
+    defaultOrg = await prisma.organization.create({
+      data: {
+        name: orgName,
+        slug: finalSlug,
+        description: `Organización principal de ${orgName}`
+      }
+    })
+    console.log('   ✅ Organización creada:', defaultOrg.id)
+  } else {
+    console.log('   ℹ️ Organización ya existe:', defaultOrg.id)
+  }
+
+  return defaultOrg
+}
+
+// Load environment variables
+const envLocalPath = resolve('.env.local')
+const envPath = resolve('.env')
+
+if (existsSync(envLocalPath)) {
+  config({ path: envLocalPath })
+} else if (existsSync(envPath)) {
+  config({ path: envPath })
+}
+
+// Environment variables with defaults
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const connectionString = process.env.DATABASE_URL
+const adminEmail = process.env.ADMIN_EMAIL || 'admin@klowezone.com'
+const adminUserId = process.env.ADMIN_USER_ID
+const adminOrgSlug = process.env.ADMIN_ORG_SLUG
+const adminOrgName = process.env.ADMIN_ORG_NAME
+
+if (!supabaseUrl || !supabaseKey || !connectionString) {
+  console.error('❌ Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, DATABASE_URL')
+  process.exit(1)
+}
+
+const pool = new Pool({ connectionString })
+const adapter = new PrismaPg(pool)
+
+const prisma = new PrismaClient({
+  adapter,
+  log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+})
+
+const supabase = createClient(supabaseUrl, supabaseKey)
+
 
 async function fixAdminSetup() {
   try {
@@ -89,7 +169,7 @@ async function fixAdminSetup() {
       return
     }
 
-    const adminUser = supabaseUser.users.find(u => u.email === 'admin@klowezone.com')
+    const adminUser = supabaseUser.users.find(u => u.email === adminEmail)
     if (!adminUser) {
       console.error('❌ Usuario admin no encontrado en Supabase Auth')
       return
@@ -105,7 +185,7 @@ async function fixAdminSetup() {
     // 2. Eliminar usuario incorrecto de Prisma si existe
     console.log('\n2. Limpiando usuario incorrecto de Prisma...')
     const existingPrismaUser = await prisma.user.findFirst({
-      where: { email: 'admin@klowezone.com' }
+      where: { email: adminEmail }
     })
 
     if (existingPrismaUser && existingPrismaUser.id !== adminUserTyped.id) {
@@ -116,52 +196,29 @@ async function fixAdminSetup() {
       console.log('   ✅ Usuario incorrecto eliminado')
     }
 
-    // 3. Crear usuario correcto en Prisma
-    console.log('\n3. Creando usuario correcto en Prisma...')
-    let prismaUser = await prisma.user.findUnique({
-      where: { id: adminUserTyped.id }
-    })
-
-    if (!prismaUser) {
-      // Validate required fields before creating user
-      if (!adminUserTyped.email) {
-        throw new Error(`Admin user email is missing for user id=${adminUserTyped.id}`)
-      }
-      if (!adminUserTyped.id) {
-        throw new Error('Admin user id is missing')
-      }
-      if (!adminUserTyped.created_at) {
-        throw new Error(`Admin user created_at is missing for user id=${adminUserTyped.id}`)
-      }
-
-      // Get or create superadmin role
-      console.log('   👑 Obteniendo role superadmin...')
-      const superAdminRoleId = await getOrCreateSuperAdminRole()
-
-      // Generate/hash password
-      console.log('   🔐 Generando password para admin...')
-      const plainPassword = await generateAdminPassword()
-      const hashedPassword = await hashPassword(plainPassword)
-
-      prismaUser = await prisma.user.create({
-        data: {
-          id: adminUserTyped.id,
-          email: adminUserTyped.email,
-          password: hashedPassword,
-          roleId: superAdminRoleId,
-          firstName: 'Super',
-          lastName: 'Admin',
-          createdAt: new Date(adminUserTyped.created_at),
-          updatedAt: new Date()
-        }
-      })
-      console.log('   ✅ Usuario creado en Prisma')
-    } else {
-      console.log('   ℹ️ Usuario ya existe en Prisma')
+    // Validate required fields
+    if (!adminUserTyped.email) {
+      throw new Error(`Admin user email is missing for user id=${adminUserTyped.id}`)
+    }
+    if (!adminUserTyped.id) {
+      throw new Error('Admin user id is missing')
     }
 
-    // 4. Crear perfil en user_profiles
-    console.log('\n4. Creando perfil en user_profiles...')
+    // 3. Crear/asegurar role superadmin
+    console.log('\n3. Asegurando role superadmin...')
+    const superAdminRoleId = await getOrCreateSuperAdminRole(prisma)
+
+    // 4. Crear/asegurar usuario admin
+    console.log('\n4. Creando usuario admin...')
+    const adminUserIdToUse = adminUserId || adminUserTyped.id
+    const prismaUser = await getOrCreateAdminUser(prisma, {
+      email: adminUserTyped.email,
+      userId: adminUserIdToUse,
+      roleId: superAdminRoleId
+    })
+
+    // 5. Crear perfil en user_profiles
+    console.log('\n5. Creando perfil en user_profiles...')
     const existingProfile = await prisma.$queryRaw<Array<{ id: string }>>`
       SELECT id FROM user_profiles WHERE id = ${adminUserTyped.id}
     `
@@ -176,27 +233,15 @@ async function fixAdminSetup() {
       console.log('   ℹ️ Perfil ya existe en user_profiles')
     }
 
-    // 5. Crear organización por defecto
-    console.log('\n5. Creando organización por defecto...')
-    let defaultOrg = await prisma.organization.findFirst({
-      where: { name: 'KloweZone' }
+    // 6. Crear organización por defecto
+    console.log('\n6. Creando organización por defecto...')
+    const defaultOrg = await getOrCreateDefaultOrganization(prisma, {
+      orgSlug: adminOrgSlug,
+      orgName: adminOrgName
     })
 
-    if (!defaultOrg) {
-      defaultOrg = await prisma.organization.create({
-        data: {
-          name: 'KloweZone',
-          slug: 'klowezone',
-          description: 'Organización principal de KloweZone'
-        }
-      })
-      console.log('   ✅ Organización KloweZone creada:', defaultOrg.id)
-    } else {
-      console.log('   ℹ️ Organización KloweZone ya existe:', defaultOrg.id)
-    }
-
-    // 6. Crear membresía
-    console.log('\n6. Creando membresía OWNER...')
+    // 7. Crear membresía
+    console.log('\n7. Creando membresía OWNER...')
     const existingMembership = await prisma.organizationMember.findFirst({
       where: {
         userId: adminUserTyped.id,
@@ -217,8 +262,8 @@ async function fixAdminSetup() {
       console.log('   ℹ️ Membresía ya existe')
     }
 
-    // 7. Establecer organización activa
-    console.log('\n7. Estableciendo organización activa...')
+    // 8. Establecer organización activa
+    console.log('\n8. Estableciendo organización activa...')
     await prisma.$executeRaw`
       UPDATE user_profiles
       SET active_org_id = ${defaultOrg.id}
