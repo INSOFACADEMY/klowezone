@@ -4,6 +4,8 @@ import { Pool } from 'pg'
 import { config } from 'dotenv'
 import { existsSync } from 'fs'
 import { resolve } from 'path'
+import { hashPassword } from '../src/lib/auth'
+import { randomBytes } from 'crypto'
 
 // Load environment variables
 const envLocalPath = resolve('.env.local')
@@ -29,6 +31,45 @@ const prisma = new PrismaClient({
   adapter,
   log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
 })
+
+async function getOrCreateSuperAdminRole(): Promise<string> {
+  // Buscar role superadmin existente
+  let superAdminRole = await prisma.role.findUnique({
+    where: { name: 'superadmin' }
+  })
+
+  if (!superAdminRole) {
+    console.log('   📝 Creando role superadmin...')
+    superAdminRole = await prisma.role.create({
+      data: {
+        name: 'superadmin',
+        description: 'Super Administrator with full access',
+        isSystem: true
+      }
+    })
+    console.log('   ✅ Role superadmin creado:', superAdminRole.id)
+  } else {
+    console.log('   ℹ️ Role superadmin ya existe:', superAdminRole.id)
+  }
+
+  return superAdminRole.id
+}
+
+async function generateAdminPassword(): Promise<string> {
+  // Usar password de env var si existe, sino generar uno random
+  const envPassword = process.env.ADMIN_INITIAL_PASSWORD
+  if (envPassword) {
+    console.log('   🔐 Usando password de ADMIN_INITIAL_PASSWORD')
+    return envPassword
+  }
+
+  // Generar password random de 16 caracteres
+  const randomPassword = randomBytes(8).toString('hex') // 16 caracteres hex
+  console.log('   🔐 Password generado (guárdalo):', randomPassword)
+  console.log('   💡 Para usar un password específico, setea ADMIN_INITIAL_PASSWORD en .env')
+
+  return randomPassword
+}
 
 // ID correcto del usuario admin en Supabase Auth
 const ADMIN_USER_ID = '19fcf809-bdd1-4b45-bbcb-9347befabd99'
@@ -59,11 +100,23 @@ async function setupAdminDirect() {
     })
 
     if (!adminUser) {
+      // Get or create superadmin role
+      console.log('   👑 Obteniendo role superadmin...')
+      const superAdminRoleId = await getOrCreateSuperAdminRole()
+
+      // Generate/hash password
+      console.log('   🔐 Generando password para admin...')
+      const plainPassword = await generateAdminPassword()
+      const hashedPassword = await hashPassword(plainPassword)
+
       adminUser = await prisma.user.create({
         data: {
           id: ADMIN_USER_ID,
           email: ADMIN_EMAIL,
-          name: 'Super Admin',
+          password: hashedPassword,
+          roleId: superAdminRoleId,
+          firstName: 'Super',
+          lastName: 'Admin',
           createdAt: new Date(),
           updatedAt: new Date()
         }
@@ -99,6 +152,7 @@ async function setupAdminDirect() {
       defaultOrg = await prisma.organization.create({
         data: {
           name: 'KloweZone',
+          slug: 'klowezone',
           description: 'Organización principal de KloweZone'
         }
       })
