@@ -159,7 +159,8 @@ describe('Input Validation', () => {
     it('should validate correct automation input', () => {
       const input = {
         name: 'Test Automation',
-        trigger: {
+        trigger: 'NEW_LEAD',
+        triggerConfig: {
           type: 'webhook',
           config: {}
         },
@@ -178,7 +179,8 @@ describe('Input Validation', () => {
     it('should reject automation without actions', () => {
       const input = {
         name: 'Test Automation',
-        trigger: {
+        trigger: 'NEW_LEAD',
+        triggerConfig: {
           type: 'webhook',
           config: {}
         },
@@ -192,7 +194,8 @@ describe('Input Validation', () => {
     it('should limit actions to maximum', () => {
       const input = {
         name: 'Test Automation',
-        trigger: {
+        trigger: 'NEW_LEAD',
+        triggerConfig: {
           type: 'webhook',
           config: {}
         },

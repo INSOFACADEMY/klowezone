@@ -87,23 +87,28 @@ export async function POST(request: NextRequest) {
       return validation.response
     }
 
-    const { name, description, trigger, actions, isActive = true } = validation.data
+    const { name, description, trigger, triggerConfig, actions, isActive = true } = validation.data
 
-    // Map trigger type to AutomationWorkflow trigger enum
-    // For now, map 'manual' to 'USER_REGISTERED' as a default
-    // TODO: Implement proper trigger type mapping based on business requirements
-    const triggerTypeMap: Record<string, AutomationWorkflow['trigger']> = {
-      'manual': 'USER_REGISTERED',
-      'webhook': 'USER_REGISTERED', // Default mapping
-      'schedule': 'DEADLINE_APPROACHING' // Default mapping
+    // Validate that trigger is provided
+    if (!trigger) {
+      return NextResponse.json(
+        { error: 'Trigger event is required. Must be one of: NEW_LEAD, PROJECT_STATUS_CHANGE, FEEDBACK_RECEIVED, CRITICAL_ERROR, USER_REGISTERED, PAYMENT_RECEIVED, DEADLINE_APPROACHING' },
+        { status: 400 }
+      )
+    }
+
+    // Set default triggerConfig if not provided
+    const defaultTriggerConfig = triggerConfig || {
+      type: 'manual' as const,
+      config: {}
     }
 
     const workflowData: Omit<AutomationWorkflow, 'id' | 'createdAt' | 'updatedAt'> = {
       name,
       description,
       isActive,
-      trigger: triggerTypeMap[trigger.type] || 'USER_REGISTERED',
-      triggerConfig: trigger.config || {},
+      trigger, // Now directly from validation (enum string)
+      triggerConfig: defaultTriggerConfig,
       actions: actions.map((action, index) => ({
         type: action.type,
         config: action.config,

@@ -164,10 +164,11 @@ export const updateSettingsSchema = createSettingsSchema.partial().extend({
 export const createAutomationSchema = z.object({
   name: stringSchema('name', { min: 1, max: 100 }),
   description: stringSchema('description', { max: 500 }).optional(),
-  trigger: z.object({
+  trigger: z.enum(['NEW_LEAD', 'PROJECT_STATUS_CHANGE', 'FEEDBACK_RECEIVED', 'CRITICAL_ERROR', 'USER_REGISTERED', 'PAYMENT_RECEIVED', 'DEADLINE_APPROACHING']),
+  triggerConfig: z.object({
     type: z.enum(['webhook', 'schedule', 'manual']),
     config: z.record(z.any())
-  }),
+  }).optional(),
   actions: z.array(z.object({
     type: z.string().min(1).max(50),
     config: z.record(z.any()),
