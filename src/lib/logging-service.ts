@@ -230,28 +230,46 @@ export class LoggingService {
     info: number
     byCategory: Record<string, number>
   }> {
-    const [total, errors, warnings, info, categoryStats] = await Promise.all([
-      prisma.auditLog.count(),
-      prisma.auditLog.count({ where: { action: 'ERROR' } }),
-      prisma.auditLog.count({ where: { action: 'WARNING' } }),
-      prisma.auditLog.count({ where: { action: 'INFO' } }),
-      prisma.auditLog.groupBy({
-        by: ['resource'],
-        _count: { resource: true }
+    try {
+      // Get organization context for multi-tenant filtering
+      const orgContext = await getOrgContext()
+
+      const where = { organizationId: orgContext.orgId }
+
+      const [total, errors, warnings, info, categoryStats] = await Promise.all([
+        prisma.auditLog.count({ where }),
+        prisma.auditLog.count({ where: { ...where, action: 'ERROR' } }),
+        prisma.auditLog.count({ where: { ...where, action: 'WARNING' } }),
+        prisma.auditLog.count({ where: { ...where, action: 'INFO' } }),
+        prisma.auditLog.groupBy({
+          by: ['resource'],
+          where,
+          _count: { resource: true }
+        })
+      ])
+
+      const byCategory: Record<string, number> = {}
+      categoryStats.forEach(stat => {
+        byCategory[stat.resource] = stat._count.resource
       })
-    ])
 
-    const byCategory: Record<string, number> = {}
-    categoryStats.forEach(stat => {
-      byCategory[stat.resource] = stat._count.resource
-    })
-
-    return {
-      total,
-      errors,
-      warnings,
-      info,
-      byCategory
+      return {
+        total,
+        errors,
+        warnings,
+        info,
+        byCategory
+      }
+    } catch (error) {
+      console.error('Error getting log stats:', error)
+      // Return empty stats if org context fails
+      return {
+        total: 0,
+        errors: 0,
+        warnings: 0,
+        info: 0,
+        byCategory: {}
+      }
     }
   }
 

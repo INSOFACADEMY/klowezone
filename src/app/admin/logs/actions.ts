@@ -21,7 +21,7 @@ export async function getLogs(filters?: {
 export async function getLogStats() {
   try {
     const loggingService = LoggingService.getInstance()
-    return await loggingService.getStats()
+    return await loggingService.getLogStats()
   } catch (error) {
     console.error('Error getting log stats:', error)
     return {
@@ -29,7 +29,7 @@ export async function getLogStats() {
       errors: 0,
       warnings: 0,
       info: 0,
-      debug: 0
+      byCategory: {}
     }
   }
 }
@@ -44,6 +44,8 @@ export async function clearOldLogs(days: number = 30) {
     return { success: false, error: 'Failed to clear logs' }
   }
 }
+
+
 
 
 
