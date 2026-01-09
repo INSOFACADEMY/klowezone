@@ -2,13 +2,16 @@
 
 import { LoggingService } from '@/lib/logging-service'
 
+// Infer the return type from LoggingService.getLogs()
+type LogsResponse = Awaited<ReturnType<LoggingService['getLogs']>>
+
 export async function getLogs(filters?: {
   level?: string
   category?: string
   userId?: string
   limit?: number
   offset?: number
-}): Promise<{ logs: LogEntry[]; total: number }> {
+}): Promise<LogsResponse> {
   try {
     const loggingService = LoggingService.getInstance()
     return await loggingService.getLogs(filters)

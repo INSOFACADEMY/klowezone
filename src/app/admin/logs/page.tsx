@@ -2,26 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { getLogs, getLogStats, clearOldLogs } from './actions'
+import type { LoggingService } from '@/lib/logging-service'
 
-interface LogEntry {
-  id: string
-  timestamp: Date
-  level: 'ERROR' | 'WARNING' | 'INFO' | 'DEBUG'
-  message: string
-  userId?: string
-  userEmail?: string
-  category: string
-  metadata?: Record<string, any>
-  ipAddress?: string
-  userAgent?: string
-  requestId?: string
-  stackTrace?: string
-}
+// Infer LogEntry type from LoggingService
+type LogEntry = Awaited<ReturnType<LoggingService['getLogs']>>['logs'][0]
 
-type LogsResponse = {
-  logs: LogEntry[]
-  total: number
-}
+// Infer LogsResponse type from getLogs function
+type LogsResponse = Awaited<ReturnType<typeof getLogs>>
 
 export default function AdminLogsPage() {
   const [logs, setLogs] = useState<LogEntry[]>([])
