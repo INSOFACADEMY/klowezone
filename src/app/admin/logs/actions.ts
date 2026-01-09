@@ -36,12 +36,21 @@ export async function getLogStats() {
 
 export async function clearOldLogs(days: number = 30) {
   try {
+    // Validate days parameter
+    if (!Number.isInteger(days) || days < 7 || days > 365) {
+      return { success: false, error: 'Days must be an integer between 7 and 365' }
+    }
+
     const loggingService = LoggingService.getInstance()
-    await loggingService.clearOldLogs(days)
-    return { success: true }
+    const result = await loggingService.clearOldLogs(days)
+    return {
+      success: true,
+      deletedCount: result.deletedCount,
+      message: `Successfully deleted ${result.deletedCount} old log entries`
+    }
   } catch (error) {
     console.error('Error clearing old logs:', error)
-    return { success: false, error: 'Failed to clear logs' }
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to clear logs' }
   }
 }
 

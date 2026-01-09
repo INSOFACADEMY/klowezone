@@ -358,6 +358,55 @@ export class LoggingService {
       return []
     }
   }
+
+  /**
+   * Clear old audit logs (multi-tenant aware)
+   */
+  async clearOldLogs(days: number): Promise<{ deletedCount: number }> {
+    try {
+      // Get organization context (required for multi-tenant)
+      const orgContext = await getOrgContext()
+
+      // Validate days parameter
+      if (!Number.isInteger(days) || days < 7 || days > 365) {
+        throw new Error('Days must be an integer between 7 and 365')
+      }
+
+      // Calculate cutoff date
+      const cutoffDate = new Date()
+      cutoffDate.setDate(cutoffDate.getDate() - days)
+
+      // Delete old logs for this organization
+      const result = await prisma.auditLog.deleteMany({
+        where: {
+          organizationId: orgContext.orgId,
+          timestamp: {
+            lt: cutoffDate
+          }
+        }
+      })
+
+      // Optional: Log the purge operation
+      await this.logAuditEvent(
+        'LOGS_PURGED',
+        'AuditLog',
+        undefined,
+        {},
+        {
+          days,
+          deletedCount: result.count,
+          cutoffDate: cutoffDate.toISOString(),
+          organizationId: orgContext.orgId
+        },
+        orgContext.userId
+      )
+
+      return { deletedCount: result.count }
+    } catch (error) {
+      console.error('Error clearing old logs:', error)
+      throw error
+    }
+  }
 }
 
 // Global instance
