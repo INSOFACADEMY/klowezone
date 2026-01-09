@@ -8,13 +8,13 @@ export async function getLogs(filters?: {
   userId?: string
   limit?: number
   offset?: number
-}) {
+}): Promise<{ logs: LogEntry[]; total: number }> {
   try {
     const loggingService = LoggingService.getInstance()
     return await loggingService.getLogs(filters)
   } catch (error) {
     console.error('Error getting logs:', error)
-    return []
+    return { logs: [], total: 0 }
   }
 }
 

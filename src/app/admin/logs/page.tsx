@@ -18,8 +18,14 @@ interface LogEntry {
   stackTrace?: string
 }
 
+type LogsResponse = {
+  logs: LogEntry[]
+  total: number
+}
+
 export default function AdminLogsPage() {
   const [logs, setLogs] = useState<LogEntry[]>([])
+  const [totalLogs, setTotalLogs] = useState<number>(0)
   const [stats, setStats] = useState({
     total: 0,
     errors: 0,
@@ -41,14 +47,17 @@ export default function AdminLogsPage() {
 
   const loadLogs = async () => {
     try {
-      const fetchedLogs = await getLogs({
+      const response: LogsResponse = await getLogs({
         level: filters.level !== 'all' ? filters.level : undefined,
         limit: filters.limit,
         offset: filters.offset
       })
-      setLogs(fetchedLogs)
+      setLogs(response.logs)
+      setTotalLogs(response.total)
     } catch (error) {
       console.error('Error loading logs:', error)
+      setLogs([])
+      setTotalLogs(0)
     } finally {
       setLoading(false)
     }
@@ -235,7 +244,7 @@ export default function AdminLogsPage() {
           {/* Pagination */}
           <div className="flex items-center justify-between mt-6 pt-6 border-t border-slate-700">
             <p className="text-slate-400 text-sm">
-              Mostrando {logs.length} de {stats.total} logs
+              Mostrando {logs.length} de {totalLogs} logs
             </p>
             <div className="flex items-center space-x-2">
               <button
@@ -250,7 +259,7 @@ export default function AdminLogsPage() {
               </span>
               <button
                 className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 hover:text-white transition-colors disabled:opacity-50"
-                disabled={filters.offset + filters.limit >= stats.total}
+                disabled={filters.offset + filters.limit >= totalLogs}
                 onClick={() => handleFilterChange({ offset: filters.offset + filters.limit })}
               >
                 Siguiente
