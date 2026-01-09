@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getWorkflows, createWorkflow, updateWorkflow, deleteWorkflow, toggleWorkflow } from '@/lib/automation-services'
+import { getWorkflows, createWorkflow, updateWorkflow, deleteWorkflow, toggleWorkflow, type AutomationWorkflow } from '@/lib/automation-services'
 import { requireAdminUser, hasAnyPermission } from '@/middleware/admin-auth'
 import { getOrgContext, TenantError } from '@/lib/tenant/getOrgContext'
 import { validateApiRequest, createAutomationSchema } from '@/lib/validation/input-validation'
@@ -89,13 +89,26 @@ export async function POST(request: NextRequest) {
 
     const { name, description, trigger, actions, isActive = true } = validation.data
 
-    const workflowData = {
+    // Map trigger type to AutomationWorkflow trigger enum
+    // For now, map 'manual' to 'USER_REGISTERED' as a default
+    // TODO: Implement proper trigger type mapping based on business requirements
+    const triggerTypeMap: Record<string, AutomationWorkflow['trigger']> = {
+      'manual': 'USER_REGISTERED',
+      'webhook': 'USER_REGISTERED', // Default mapping
+      'schedule': 'DEADLINE_APPROACHING' // Default mapping
+    }
+
+    const workflowData: Omit<AutomationWorkflow, 'id' | 'createdAt' | 'updatedAt'> = {
       name,
       description,
       isActive,
-      trigger,
-      triggerConfig: {},
-      actions,
+      trigger: triggerTypeMap[trigger.type] || 'USER_REGISTERED',
+      triggerConfig: trigger.config || {},
+      actions: actions.map((action, index) => ({
+        type: action.type,
+        config: action.config,
+        order: action.order || index
+      })),
       createdBy: orgContext.userId // Use real user ID from org context
     }
 
