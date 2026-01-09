@@ -1,38 +1,51 @@
 'use server'
 
 import { getWorkflows as getWorkflowsService, toggleWorkflow as toggleWorkflowService, deleteWorkflow as deleteWorkflowService, createWorkflow as createWorkflowService } from '@/lib/automation-services'
+import { getOrgContext, TenantError } from '@/lib/tenant/getOrgContext'
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 
 // Automation Workflows Actions
 export async function getWorkflows() {
   try {
-    const workflows = await getWorkflowsService()
+    const { orgId } = await getOrgContext()
+    const workflows = await getWorkflowsService(orgId)
     return { success: true, data: workflows }
   } catch (error) {
     console.error('Error in getWorkflows server action:', error)
+    if (error instanceof TenantError) {
+      return { success: false, error: error.message, statusCode: 403 }
+    }
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }
 
 export async function toggleWorkflow(id: string, isActive: boolean) {
   try {
-    await toggleWorkflowService(id, isActive)
+    const { orgId } = await getOrgContext()
+    await toggleWorkflowService(orgId, id, isActive)
     revalidatePath('/admin/automations')
     return { success: true }
   } catch (error) {
     console.error('Error in toggleWorkflow server action:', error)
+    if (error instanceof TenantError) {
+      return { success: false, error: error.message, statusCode: 403 }
+    }
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }
 
 export async function deleteWorkflow(id: string) {
   try {
-    await deleteWorkflowService(id)
+    const { orgId } = await getOrgContext()
+    await deleteWorkflowService(orgId, id)
     revalidatePath('/admin/automations')
     return { success: true }
   } catch (error) {
     console.error('Error in deleteWorkflow server action:', error)
+    if (error instanceof TenantError) {
+      return { success: false, error: error.message, statusCode: 403 }
+    }
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }
@@ -44,19 +57,23 @@ export async function createWorkflow(data: {
   actions: any[]
 }) {
   try {
-    const workflow = await createWorkflowService({
+    const { orgId, userId } = await getOrgContext()
+    const workflow = await createWorkflowService(orgId, {
       name: data.name,
       description: data.description,
       trigger: data.trigger as any,
       triggerConfig: {},
       actions: data.actions,
       isActive: false,
-      createdBy: 'admin' // TODO: Get from auth context
+      createdBy: userId
     })
     revalidatePath('/admin/automations')
     return { success: true, data: workflow }
   } catch (error) {
     console.error('Error in createWorkflow server action:', error)
+    if (error instanceof TenantError) {
+      return { success: false, error: error.message, statusCode: 403 }
+    }
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }
