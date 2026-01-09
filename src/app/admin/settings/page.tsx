@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Settings, Mail, Cpu, HardDrive, Shield, Eye, EyeOff, Save, TestTube, CheckCircle, XCircle, Loader2, Plus, Edit, Trash2 } from 'lucide-react'
+import { testEmailConnection, testAIConnection, testStorageConnection } from './actions'
 // Simplified imports for now
 
 type EmailProvider = {
