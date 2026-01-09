@@ -1,18 +1,14 @@
 'use server'
 
 import { getOrgContext } from '@/lib/tenant/getOrgContext'
-import { testEmailConnection as testEmailProviderConnection, testAIConnection as testAIProviderConnection, testStorageConnection as testStorageProviderConnection } from '@/lib/config-services'
+import { testEmailConnection as testEmailProviderConnection, testAIConnection as testAIProviderConnection, testStorageConnection as testStorageProviderConnection, getEmailProviderForOrg, getAIProviderForOrg, getStorageProviderForOrg } from '@/lib/config-services'
 
 export async function testEmailConnection(id: string): Promise<{ success: boolean; message: string; error?: string }> {
   try {
     const { orgId } = await getOrgContext()
 
     // Validate that the email provider belongs to the organization
-    const provider = await import('@/lib/prisma').then(({ prisma }) =>
-      prisma.emailProvider.findFirst({
-        where: { id, organizationId: orgId }
-      })
-    )
+    const provider = await getEmailProviderForOrg(id, orgId)
 
     if (!provider) {
       return { success: false, message: 'Proveedor no encontrado o acceso denegado', error: 'NOT_FOUND' }
@@ -36,11 +32,7 @@ export async function testAIConnection(id: string): Promise<{ success: boolean; 
     const { orgId } = await getOrgContext()
 
     // Validate that the AI provider belongs to the organization
-    const provider = await import('@/lib/prisma').then(({ prisma }) =>
-      prisma.aiProvider.findFirst({
-        where: { id, organizationId: orgId }
-      })
-    )
+    const provider = await getAIProviderForOrg(id, orgId)
 
     if (!provider) {
       return { success: false, message: 'Proveedor no encontrado o acceso denegado', error: 'NOT_FOUND' }
@@ -64,11 +56,7 @@ export async function testStorageConnection(id: string): Promise<{ success: bool
     const { orgId } = await getOrgContext()
 
     // Validate that the storage provider belongs to the organization
-    const provider = await import('@/lib/prisma').then(({ prisma }) =>
-      prisma.storageProvider.findFirst({
-        where: { id, organizationId: orgId }
-      })
-    )
+    const provider = await getStorageProviderForOrg(id, orgId)
 
     if (!provider) {
       return { success: false, message: 'Proveedor no encontrado o acceso denegado', error: 'NOT_FOUND' }

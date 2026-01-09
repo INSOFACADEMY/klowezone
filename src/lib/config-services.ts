@@ -547,6 +547,40 @@ async function testLocalConnection(config: any): Promise<{ success: boolean; mes
   return { success: true, message: 'Directorio local accesible' }
 }
 
+// ========================================
+// PROVIDER VALIDATION HELPERS
+// ========================================
+
+/**
+ * Helper to validate that an email provider belongs to an organization
+ * Handles the aIProvider casing issue internally
+ */
+export async function getEmailProviderForOrg(id: string, orgId: string) {
+  return await prisma.emailProvider.findFirst({
+    where: { id, organizationId: orgId }
+  })
+}
+
+/**
+ * Helper to validate that an AI provider belongs to an organization
+ * Handles the aIProvider casing issue internally
+ */
+export async function getAIProviderForOrg(id: string, orgId: string) {
+  return await prisma.aIProvider.findFirst({
+    where: { id, organizationId: orgId }
+  })
+}
+
+/**
+ * Helper to validate that a storage provider belongs to an organization
+ * Handles the aIProvider casing issue internally
+ */
+export async function getStorageProviderForOrg(id: string, orgId: string) {
+  return await prisma.storageProvider.findFirst({
+    where: { id, organizationId: orgId }
+  })
+}
+
 
 
 
