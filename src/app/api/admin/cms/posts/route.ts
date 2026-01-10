@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const auth = await requireAdminUser(request);
     if (auth instanceof NextResponse) return auth;
 
-    const { user } = auth;
+    const { user, orgId } = auth;
     if (!hasPermission(user, 'posts.read')) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     const auth = await requireAdminUser(request);
     if (auth instanceof NextResponse) return auth;
 
-    const { user } = auth;
+    const { user, orgId } = auth;
     if (!hasPermission(user, 'posts.create')) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },

@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     const auth = await requireAdminUser(request);
     if (auth instanceof NextResponse) return auth;
 
-    const { user } = auth;
+    const { user, orgId } = auth;
 
     // Check permissions: need write access to automations
     if (!hasAnyPermission(user, ['automations:write'])) {

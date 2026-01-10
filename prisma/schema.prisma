@@ -21,6 +21,7 @@ model User {
   updatedAt               DateTime             @updatedAt
   telefono                String?
   metaCampaignId          String?
+  adminSessions           AdminSession[]     @relation("adminSessionUser")
   auditLogs               AuditLog[]
   automationWorkflows     AutomationWorkflow[]
   blogPosts               BlogPost[]
@@ -59,6 +60,7 @@ model Organization {
   isActive            Boolean              @default(true)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
+  adminSessions       AdminSession[]     @relation("adminSessionOrg")
   aiProviders         AIProvider[]
   apiKeys             ApiKey[]
   auditLogs           AuditLog[]
@@ -339,6 +341,30 @@ model AuditLog {
   user           User          @relation(fields: [userId], references: [id])
 
   @@map("audit_logs")
+}
+
+model AdminSession {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  tokenHash      String   @unique
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  lastUsedAt     DateTime?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  user         User         @relation("adminSessionUser", fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation("adminSessionOrg", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([userId, organizationId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+  @@map("admin_sessions")
 }
 
 model Incident {

@@ -11,23 +11,16 @@ export async function GET(request: NextRequest) {
     const auth = await requireAdminUser(request);
     if (auth instanceof NextResponse) return auth;
 
-    const { user } = auth;
+    const { user, orgId } = auth;
 
-    // Get organization context (required for multi-tenant)
-    let orgContext
-    try {
-      orgContext = await getOrgContext(request)
-    } catch (error) {
-      if (error instanceof TenantError) {
-        return NextResponse.json(
-          { error: `Organization context required: ${error.message}` },
-          { status: 400 }
-        )
-      }
-      throw error
+    // Create orgContext for permission validation (admin users have ADMIN role)
+    const orgContext = {
+      userId: user.id,
+      orgId,
+      orgRole: 'ADMIN' as const
     }
 
-    // RBAC: API keys read requires OWNER or ADMIN role
+    // RBAC: API keys read requires appropriate permissions
     const permissionCheck = validateOrgPermission(orgContext, 'api-keys:read', 'read API keys')
     if (!permissionCheck.success) {
       return NextResponse.json(
@@ -37,7 +30,7 @@ export async function GET(request: NextRequest) {
     }
 
     // List API keys for the organization
-    const apiKeys = await listApiKeys(orgContext.orgId)
+    const apiKeys = await listApiKeys(orgId)
 
     return NextResponse.json({
       success: true,
@@ -60,20 +53,13 @@ export async function POST(request: NextRequest) {
     const auth = await requireAdminUser(request);
     if (auth instanceof NextResponse) return auth;
 
-    const { user } = auth;
+    const { user, orgId } = auth;
 
-    // Get organization context (required for multi-tenant)
-    let orgContext
-    try {
-      orgContext = await getOrgContext(request)
-    } catch (error) {
-      if (error instanceof TenantError) {
-        return NextResponse.json(
-          { error: `Organization context required: ${error.message}` },
-          { status: 400 }
-        )
-      }
-      throw error
+    // Create orgContext for permission validation (admin users have ADMIN role)
+    const orgContext = {
+      userId: user.id,
+      orgId,
+      orgRole: 'ADMIN' as const
     }
 
     // RBAC: API keys create requires OWNER or ADMIN role
@@ -104,7 +90,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create the API key
-    const result = await createApiKey(orgContext.orgId, user.id, name.trim())
+    const result = await createApiKey(orgId, user.id, name.trim())
 
     return NextResponse.json({
       success: true,

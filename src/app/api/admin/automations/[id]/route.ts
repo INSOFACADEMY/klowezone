@@ -14,7 +14,7 @@ export async function PUT(
     const auth = await requireAdminUser(request);
     if (auth instanceof NextResponse) return auth;
 
-    const { user } = auth;
+    const { user, orgId } = auth;
 
     // Check permissions: need write access to automations
     if (!hasAnyPermission(user, ['automations:write'])) {
@@ -60,7 +60,7 @@ export async function DELETE(
     const auth = await requireAdminUser(request);
     if (auth instanceof NextResponse) return auth;
 
-    const { user } = auth;
+    const { user, orgId } = auth;
 
     // Check permissions: need write access to automations
     if (!hasAnyPermission(user, ['automations:write'])) {
@@ -114,7 +114,7 @@ export async function PATCH(
     const auth = await requireAdminUser(request);
     if (auth instanceof NextResponse) return auth;
 
-    const { user } = auth;
+    const { user, orgId } = auth;
 
     // Check permissions: need write access to automations
     if (!hasAnyPermission(user, ['automations:write'])) {

@@ -14,20 +14,13 @@ export async function DELETE(
     const auth = await requireAdminUser(request);
     if (auth instanceof NextResponse) return auth;
 
-    const { user } = auth;
+    const { user, orgId } = auth;
 
-    // Get organization context (required for multi-tenant)
-    let orgContext
-    try {
-      orgContext = await getOrgContext(request)
-    } catch (error) {
-      if (error instanceof TenantError) {
-        return NextResponse.json(
-          { error: `Organization context required: ${error.message}` },
-          { status: 400 }
-        )
-      }
-      throw error
+    // Create orgContext for permission validation (admin users have ADMIN role)
+    const orgContext = {
+      userId: user.id,
+      orgId,
+      orgRole: 'ADMIN' as const
     }
 
     // RBAC: API keys revoke requires OWNER or ADMIN role

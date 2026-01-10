@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const auth = await requireAdminUser(request);
     if (auth instanceof NextResponse) return auth;
 
-    const { user } = auth;
+    const { user, orgId } = auth;
 
     // Get organization context (required for multi-tenant)
     let orgContext
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     const auth = await requireAdminUser(request);
     if (auth instanceof NextResponse) return auth;
 
-    const { user } = auth;
+    const { user, orgId } = auth;
 
     // Get organization context (required for multi-tenant)
     let orgContext
@@ -180,7 +180,7 @@ export async function DELETE(request: NextRequest) {
     const auth = await requireAdminUser(request);
     if (auth instanceof NextResponse) return auth;
 
-    const { user } = auth;
+    const { user, orgId } = auth;
 
     // Get organization context (required for multi-tenant)
     let orgContext
