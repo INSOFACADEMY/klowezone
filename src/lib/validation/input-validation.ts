@@ -156,7 +156,7 @@ export const createSettingsSchema = z.object({
   value: z.union([z.string(), z.number(), z.boolean()]).transform(val =>
     typeof val === 'string' ? val.substring(0, 1000) : val
   ),
-  category: stringSchema('category', { min: 1, max: 50 }).optional(),
+  category: stringSchema('category', { min: 1, max: 50 }).default('general'),
   description: stringSchema('description', { max: 500 }).optional(),
   isSecret: z.boolean().optional().default(false)
 }).strict()
