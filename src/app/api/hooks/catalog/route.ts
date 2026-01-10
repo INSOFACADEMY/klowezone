@@ -7,6 +7,10 @@ import {
   getEventDefinition
 } from '@/lib/events/catalog'
 
+// Force dynamic rendering for runtime API routes
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 // GET /api/hooks/catalog - Get webhook events catalog
 export async function GET(request: NextRequest) {
   try {
@@ -74,6 +78,8 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
+
 
 
 

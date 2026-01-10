@@ -8,6 +8,10 @@ import { ADMIN_ROLES } from '@/lib/roles'
 import { isLikelyBrowserRequest, extractIPAddress } from '@/lib/security'
 import OpenAI from 'openai'
 
+// Force dynamic rendering for runtime API routes
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 // Inicializar OpenAI
 const openai = new OpenAI({
   apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY
@@ -371,6 +375,7 @@ export async function GET(request: NextRequest) {
     const recommendations = generateStrategicRecommendations({
       totalSpend,
       totalRevenue,
+      totalLeads,
       overallROI,
       starCampaign,
       blackHoleCampaign,
@@ -505,6 +510,7 @@ async function generateCGOAnalysis(data: {
 function generateStrategicRecommendations(data: {
   totalSpend: number
   totalRevenue: number
+  totalLeads: number
   overallROI: number
   starCampaign: any
   blackHoleCampaign: any
