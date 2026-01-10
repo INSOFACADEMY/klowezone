@@ -27,6 +27,27 @@ export interface AutomationAction {
   delay: number
 }
 
+// ========================================
+// CREATE INPUT TYPES (for API endpoints)
+// ========================================
+
+export interface AutomationActionCreateInput {
+  type: 'SEND_EMAIL' | 'CREATE_NOTIFICATION' | 'LOG_TO_SLACK' | 'UPDATE_RECORD' | 'CREATE_TASK' | 'RUN_AI_ANALYSIS' | 'SEND_WEBHOOK'
+  config: any
+  order?: number  // Optional, will default to index
+  delay?: number  // Optional, will default to 0
+}
+
+export interface AutomationWorkflowCreateInput {
+  name: string
+  description?: string
+  isActive: boolean
+  trigger: 'NEW_LEAD' | 'PROJECT_STATUS_CHANGE' | 'FEEDBACK_RECEIVED' | 'CRITICAL_ERROR' | 'USER_REGISTERED' | 'PAYMENT_RECEIVED' | 'DEADLINE_APPROACHING'
+  triggerConfig: any
+  actions: AutomationActionCreateInput[]
+  createdBy: string
+}
+
 export interface AutomationRun {
   id: string
   workflowId: string
@@ -72,7 +93,7 @@ export async function getWorkflows(orgId: string) {
   }
 }
 
-export async function createWorkflow(orgId: string, data: Omit<AutomationWorkflow, 'id' | 'createdAt' | 'updatedAt'>) {
+export async function createWorkflow(orgId: string, data: AutomationWorkflowCreateInput) {
   try {
     return await prisma.automationWorkflow.create({
       data: {
@@ -85,10 +106,10 @@ export async function createWorkflow(orgId: string, data: Omit<AutomationWorkflo
         createdBy: data.createdBy,
         actions: {
           create: data.actions.map((action, index) => ({
-            order: index,
+            order: action.order ?? index,
             type: action.type,
-            config: action.config,
-            delay: action.delay,
+            config: action.config ?? {},
+            delay: action.delay ?? 0,
             organizationId: orgId
           }))
         }

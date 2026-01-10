@@ -171,8 +171,9 @@ export const createAutomationSchema = z.object({
   }).optional(),
   actions: z.array(z.object({
     type: z.string().min(1).max(50),
-    config: z.record(z.any()),
-    order: positiveIntegerSchema.optional()
+    config: z.record(z.any()).optional(),
+    order: positiveIntegerSchema.optional(),
+    delay: z.number().min(0).optional()
   })).min(1).max(20),
   isActive: z.boolean().optional().default(true)
 }).strict()

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getWorkflows, createWorkflow, updateWorkflow, deleteWorkflow, toggleWorkflow, type AutomationWorkflow } from '@/lib/automation-services'
+import { getWorkflows, createWorkflow, updateWorkflow, deleteWorkflow, toggleWorkflow, type AutomationWorkflowCreateInput } from '@/lib/automation-services'
 import { requireAdminUser, hasAnyPermission } from '@/middleware/admin-auth'
 import { getOrgContext, TenantError } from '@/lib/tenant/getOrgContext'
 import { validateApiRequest, createAutomationSchema } from '@/lib/validation/input-validation'
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
       config: {}
     }
 
-    const workflowData: Omit<AutomationWorkflow, 'id' | 'createdAt' | 'updatedAt'> = {
+    const workflowData: AutomationWorkflowCreateInput = {
       name,
       description,
       isActive,
@@ -111,8 +111,9 @@ export async function POST(request: NextRequest) {
       triggerConfig: defaultTriggerConfig,
       actions: actions.map((action, index) => ({
         type: action.type,
-        config: action.config,
-        order: action.order || index
+        config: action.config ?? {},
+        order: action.order ?? index,
+        delay: action.delay ?? 0
       })),
       createdBy: orgContext.userId // Use real user ID from org context
     }

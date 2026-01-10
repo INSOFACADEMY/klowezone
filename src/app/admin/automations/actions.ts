@@ -58,12 +58,21 @@ export async function createWorkflow(data: {
 }) {
   try {
     const { orgId, userId } = await getOrgContext()
+
+    // Transform actions to AutomationActionCreateInput format
+    const actionsInput = data.actions.map((action, index) => ({
+      type: action.type,
+      config: action.config ?? {},
+      order: action.order ?? index,
+      delay: action.delay ?? 0
+    }))
+
     const workflow = await createWorkflowService(orgId, {
       name: data.name,
       description: data.description,
       trigger: data.trigger as any,
       triggerConfig: {},
-      actions: data.actions,
+      actions: actionsInput,
       isActive: false,
       createdBy: userId
     })
