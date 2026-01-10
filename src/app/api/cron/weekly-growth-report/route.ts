@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { apiKeyAuth, isApiKeyAuthResult } from '@/middleware/api-key-auth'
 import { requireAdminUser } from '@/middleware/admin-auth'
 import { apiKeyRateLimit, adminRateLimit } from '@/middleware/rate-limit'
-import { logAuditEvent } from '@/lib/logging-service'
+import { logger } from '@/lib/logging-service'
 import { ADMIN_ROLES } from '@/lib/roles'
 import { isLikelyBrowserRequest, extractIPAddress } from '@/lib/security'
 import OpenAI from 'openai'
@@ -94,13 +94,12 @@ export async function GET(request: NextRequest) {
         const ipAddress = extractIPAddress(request.headers)
 
         // Audit suspicious activity
-        await logAuditEvent({
-          userId: null,
-          organizationId: apiKeyAuthResult.orgId,
-          action: 'WEEKLY_REPORT_SUSPICIOUS_API_KEY_USAGE',
-          resourceType: 'WEEKLY_REPORT',
-          resourceId: null,
-          details: {
+        await logger.logAuditEvent(
+          'WEEKLY_REPORT_SUSPICIOUS_API_KEY_USAGE',
+          'WEEKLY_REPORT',
+          undefined, // resourceId
+          undefined, // oldValues
+          {
             reason: 'API key used from browser (detected by browser headers)',
             apiKeyId: apiKeyAuthResult.apiKeyId,
             userAgent: request.headers.get('user-agent'),
@@ -115,8 +114,10 @@ export async function GET(request: NextRequest) {
             hasSecFetchSite: !!request.headers.get('sec-fetch-site'),
             hasSecFetchMode: !!request.headers.get('sec-fetch-mode'),
             hasSecFetchDest: !!request.headers.get('sec-fetch-dest')
-          }
-        })
+          },
+          undefined, // userId
+          request
+        )
 
         return NextResponse.json(
           { error: 'API keys must be used server-to-server only' },
@@ -143,18 +144,19 @@ export async function GET(request: NextRequest) {
         const ipAddress = extractIPAddress(request.headers)
 
         // Audit failed authentication
-        await logAuditEvent({
-          userId: null,
-          organizationId: null,
-          action: 'WEEKLY_REPORT_ACCESS_DENIED',
-          resourceType: 'WEEKLY_REPORT',
-          resourceId: null,
-          details: {
+        await logger.logAuditEvent(
+          'WEEKLY_REPORT_ACCESS_DENIED',
+          'WEEKLY_REPORT',
+          undefined, // resourceId
+          {}, // oldValues
+          {
             reason: 'No valid authentication',
             authMode: 'admin_ui',
             ipAddress
-          }
-        })
+          },
+          undefined, // userId
+          request
+        )
 
         return NextResponse.json(
           { error: 'Admin authentication required' },
@@ -179,19 +181,20 @@ export async function GET(request: NextRequest) {
         // Check if user is superadmin for system-wide access
         const userRole = adminAuth.user.role?.name?.toLowerCase()
         if (userRole !== 'superadmin') {
-          await logAuditEvent({
-            userId: authenticatedUserId,
-            organizationId: null,
-            action: 'WEEKLY_REPORT_ACCESS_DENIED',
-            resourceType: 'WEEKLY_REPORT',
-            resourceId: null,
-            details: {
+          await logger.logAuditEvent(
+            'WEEKLY_REPORT_ACCESS_DENIED',
+            'WEEKLY_REPORT',
+            undefined, // resourceId
+            {}, // oldValues
+            {
               reason: 'Insufficient permissions for system-wide mode',
               requestedMode: 'system-wide',
               userRole: userRole,
               authMode: 'admin_ui'
-            }
-          })
+            },
+            authenticatedUserId,
+            request
+          )
 
           return NextResponse.json(
             { error: 'Superadmin role required for system-wide reports' },
@@ -209,17 +212,18 @@ export async function GET(request: NextRequest) {
 
         const activeOrg = userMemberships.find(m => m.organization.isActive)?.organization
         if (!activeOrg) {
-          await logAuditEvent({
-            userId: authenticatedUserId,
-            organizationId: null,
-            action: 'WEEKLY_REPORT_ACCESS_DENIED',
-            resourceType: 'WEEKLY_REPORT',
-            resourceId: null,
-            details: {
+          await logger.logAuditEvent(
+            'WEEKLY_REPORT_ACCESS_DENIED',
+            'WEEKLY_REPORT',
+            undefined, // resourceId
+            {}, // oldValues
+            {
               reason: 'No active organization membership',
               authMode: 'admin_ui'
-            }
-          })
+            },
+            authenticatedUserId,
+            request
+          )
 
           return NextResponse.json(
             { error: 'No active organization membership found' },
@@ -396,13 +400,12 @@ export async function GET(request: NextRequest) {
     console.log(`💰 Revenue: $${totalRevenue.toFixed(2)}, ROI: ${overallROI.toFixed(1)}%`)
 
     // Audit successful access
-    await logAuditEvent({
-      userId: authenticatedUserId,
-      organizationId: orgId,
-      action: 'WEEKLY_REPORT_GENERATED',
-      resourceType: 'WEEKLY_REPORT',
-      resourceId: null,
-      details: {
+    await logger.logAuditEvent(
+      'WEEKLY_REPORT_GENERATED',
+      'WEEKLY_REPORT',
+      undefined, // resourceId
+      {}, // oldValues
+      {
         authMode,
         apiKeyId: authenticatedApiKeyId,
         weekStart: lastMonday.toISOString(),
@@ -411,8 +414,10 @@ export async function GET(request: NextRequest) {
         totalRevenue,
         overallROI,
         outcome: 'success'
-      }
-    })
+      },
+      authenticatedUserId,
+      request
+    )
 
     return NextResponse.json({
       success: true,
