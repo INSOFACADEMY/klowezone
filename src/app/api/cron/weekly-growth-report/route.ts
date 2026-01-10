@@ -80,7 +80,7 @@ interface WeeklyReport {
  */
 export async function GET(request: NextRequest) {
   try {
-    let authenticatedUserId: string | null = null
+    let authenticatedUserId: string | undefined = undefined
     let authenticatedApiKeyId: string | null = null
     let orgId: string | null = null
     let authMode: 'admin_ui' | 'api_integration' = 'admin_ui'
@@ -415,7 +415,7 @@ export async function GET(request: NextRequest) {
         overallROI,
         outcome: 'success'
       },
-      authenticatedUserId,
+      authenticatedUserId || undefined,
       request
     )
 
