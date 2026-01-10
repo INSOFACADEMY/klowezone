@@ -157,6 +157,7 @@ export const createSettingsSchema = z.object({
     typeof val === 'string' ? val.substring(0, 1000) : val
   ),
   category: stringSchema('category', { min: 1, max: 50 }).optional(),
+  description: stringSchema('description', { max: 500 }).optional(),
   isSecret: z.boolean().optional().default(false)
 }).strict()
 
