@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
     const { key, value, isSecret = false, category, description } = validation.data
 
     // Encrypt value if it's marked as secret
-    const processedValue = isSecret ? JSON.stringify(encrypt(value)) : value
+    const processedValue = isSecret ? JSON.stringify(encrypt(String(value))) : String(value)
 
     // Create or update setting for the organization
     const setting = await prisma.systemConfig.upsert({
