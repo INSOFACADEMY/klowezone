@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { NextResponse } from 'next/server'
 import { AUTOMATION_ACTION_TYPES } from '@/lib/automation-services'
+import { zodErrorDetails } from './zod-error'
 
 // Common validation schemas
 export const stringSchema = (fieldName: string, options?: {
@@ -107,8 +108,9 @@ export function validateAndSanitizeInput<T>(
     const result = schema.parse(processedData)
     return { success: true, data: result }
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      const errors = error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+    const details = zodErrorDetails(error)
+    if (details) {
+      const errors = details.issues.map(err => `${err.path.join('.')}: ${err.message}`)
       return { success: false, errors }
     }
 

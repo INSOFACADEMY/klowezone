@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdminUser, hasPermission } from '@/middleware/admin-auth'
 import { z } from 'zod'
+import { createValidationErrorResponse } from '@/lib/validation/zod-error'
 
 // Validation schema for blog post
 const blogPostSchema = z.object({
@@ -153,11 +154,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(post, { status: 201 })
 
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation failed', details: error.errors },
-        { status: 400 }
-      )
+    const validationError = createValidationErrorResponse(error)
+    if (validationError) {
+      return NextResponse.json(validationError, { status: 400 })
     }
 
     console.error('Error creating blog post:', error)
