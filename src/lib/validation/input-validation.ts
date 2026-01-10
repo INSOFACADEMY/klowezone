@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { NextResponse } from 'next/server'
+import { AUTOMATION_ACTION_TYPES } from '@/lib/automation-services'
 
 // Common validation schemas
 export const stringSchema = (fieldName: string, options?: {
@@ -170,7 +171,7 @@ export const createAutomationSchema = z.object({
     config: z.record(z.any())
   }).optional(),
   actions: z.array(z.object({
-    type: z.string().min(1).max(50),
+    type: z.enum(AUTOMATION_ACTION_TYPES),
     config: z.record(z.any()).optional(),
     order: positiveIntegerSchema.optional(),
     delay: z.number().min(0).optional()

@@ -2,6 +2,22 @@ import { prisma } from './prisma'
 import { encryptObject, decryptObject, type EncryptedData } from './encryption'
 
 // ========================================
+// AUTOMATION ACTION TYPES
+// ========================================
+
+export const AUTOMATION_ACTION_TYPES = [
+  'SEND_EMAIL',
+  'CREATE_NOTIFICATION',
+  'LOG_TO_SLACK',
+  'UPDATE_RECORD',
+  'CREATE_TASK',
+  'RUN_AI_ANALYSIS',
+  'SEND_WEBHOOK'
+] as const
+
+export type AutomationActionType = (typeof AUTOMATION_ACTION_TYPES)[number]
+
+// ========================================
 // AUTOMATION SERVICES
 // ========================================
 
@@ -22,7 +38,7 @@ export interface AutomationAction {
   id: string
   workflowId: string
   order: number
-  type: 'SEND_EMAIL' | 'CREATE_NOTIFICATION' | 'LOG_TO_SLACK' | 'UPDATE_RECORD' | 'CREATE_TASK' | 'RUN_AI_ANALYSIS' | 'SEND_WEBHOOK'
+  type: AutomationActionType
   config: any
   delay: number
 }
@@ -32,7 +48,7 @@ export interface AutomationAction {
 // ========================================
 
 export interface AutomationActionCreateInput {
-  type: 'SEND_EMAIL' | 'CREATE_NOTIFICATION' | 'LOG_TO_SLACK' | 'UPDATE_RECORD' | 'CREATE_TASK' | 'RUN_AI_ANALYSIS' | 'SEND_WEBHOOK'
+  type: AutomationActionType
   config: any
   order?: number  // Optional, will default to index
   delay?: number  // Optional, will default to 0
