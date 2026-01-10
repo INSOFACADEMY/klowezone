@@ -53,7 +53,7 @@ const projectSchema = z.object({
   cliente_id: z.string().min(1, "Debes seleccionar un cliente"),
   nombre_proyecto: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
   prioridad: z.enum(["Urgente", "Alta", "Media", "Baja"]),
-  estado: z.enum(["Planificación", "En Progreso", "Completado", "Pausado", "Cancelado"]),
+  estado: z.enum(["PLANIFICACION", "EN_PROGRESO", "COMPLETADO", "PAUSADO", "CANCELADO"]),
   fecha_entrega: z.string().optional(),
   descripcion: z.string().optional(),
 }).refine((data) => {
@@ -111,7 +111,7 @@ export default function DashboardPage() {
       cliente_id: '',
       nombre_proyecto: '',
       prioridad: 'Media',
-      estado: 'Planificación',
+      estado: 'PLANIFICACION',
       fecha_entrega: '',
       descripcion: ''
     }
@@ -120,7 +120,7 @@ export default function DashboardPage() {
     cliente_id: '',
     nombre_proyecto: '',
     prioridad: 'Media' as const,
-    estado: 'Planificación' as const,
+    estado: 'PLANIFICACION' as const,
     fecha_entrega: '',
     descripcion: ''
   });
@@ -128,7 +128,7 @@ export default function DashboardPage() {
     cliente_id: '',
     nombre_proyecto: '',
     prioridad: 'Media' as const,
-    estado: 'Planificación' as const,
+    estado: 'PLANIFICACION' as const,
     fecha_entrega: '',
     descripcion: ''
   });
@@ -224,11 +224,11 @@ export default function DashboardPage() {
 
   const getProgressInfo = useCallback((estado: Project['estado']) => {
     switch (estado) {
-      case 'Planificación': return { progress: 25, color: 'bg-gradient-to-r from-slate-400 to-slate-500' };
-      case 'En Progreso': return { progress: 65, color: 'bg-gradient-to-r from-blue-400 to-blue-600' };
-      case 'Completado': return { progress: 100, color: 'bg-gradient-to-r from-green-400 to-green-600' };
-      case 'Pausado': return { progress: 40, color: 'bg-gradient-to-r from-yellow-400 to-yellow-600' };
-      case 'Cancelado': return { progress: 0, color: 'bg-gradient-to-r from-red-400 to-red-600' };
+      case 'PLANIFICACION': return { progress: 25, color: 'bg-gradient-to-r from-slate-400 to-slate-500' };
+      case 'EN_PROGRESO': return { progress: 65, color: 'bg-gradient-to-r from-blue-400 to-blue-600' };
+      case 'COMPLETADO': return { progress: 100, color: 'bg-gradient-to-r from-green-400 to-green-600' };
+      case 'PAUSADO': return { progress: 40, color: 'bg-gradient-to-r from-yellow-400 to-yellow-600' };
+      case 'CANCELADO': return { progress: 0, color: 'bg-gradient-to-r from-red-400 to-red-600' };
       default: return { progress: 0, color: 'bg-gradient-to-r from-slate-500 to-slate-600' };
     }
   }, []);
@@ -254,14 +254,16 @@ export default function DashboardPage() {
     }
   };
 
-  // Debug logging for form values
-  const clientFormValues = clientForm.watch();
-  console.log("📋 Client form values:", clientFormValues);
-  console.log("📋 Client form errors:", clientForm.formState.errors);
-  console.log("📋 Client form isValid:", clientForm.formState.isValid);
+  // Debug logging for form values (only in development)
+  if (process.env.NODE_ENV !== 'production') {
+    const clientFormValues = clientForm.watch();
+    console.log("📋 Client form values:", clientFormValues);
+    console.log("📋 Client form errors:", clientForm.formState.errors);
+    console.log("📋 Client form isValid:", clientForm.formState.isValid);
 
-  const projectFormValues = projectForm.watch();
-  console.log("📋 Project form values:", projectFormValues);
+    const projectFormValues = projectForm.watch();
+    console.log("📋 Project form values:", projectFormValues);
+  }
   console.log("📋 Project form errors:", projectForm.formState.errors);
   console.log("📋 Project form isValid:", projectForm.formState.isValid);
 
@@ -758,12 +760,12 @@ export default function DashboardPage() {
                       Proyectos Activos
                     </CardTitle>
                     <CardDescription className="text-slate-400">
-                      {projects.filter(p => p.estado !== 'Completado' && p.estado !== 'Cancelado').length} proyectos en curso
+                      {projects.filter(p => p.estado !== 'COMPLETADO' && p.estado !== 'CANCELADO').length} proyectos en curso
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-0">
                     <div className="px-6 pb-6">
-                      {projects.filter(p => p.estado !== 'Completado' && p.estado !== 'Cancelado').length === 0 ? (
+                      {projects.filter(p => p.estado !== 'COMPLETADO' && p.estado !== 'CANCELADO').length === 0 ? (
                         <div className="text-center py-8">
                           <Briefcase className="w-12 h-12 text-slate-600 mx-auto mb-4" />
                           <p className="text-slate-400 text-sm">
@@ -773,7 +775,7 @@ export default function DashboardPage() {
                       ) : (
                         <div className="space-y-4">
                           {projects
-                            .filter(p => p.estado !== 'Completado' && p.estado !== 'Cancelado')
+                            .filter(p => p.estado !== 'COMPLETADO' && p.estado !== 'CANCELADO')
                             .slice(0, 5)
                             .map((project, index) => {
                               const progressInfo = getProgressInfo(project.estado);
