@@ -13,6 +13,7 @@ import { supabase } from "@/lib/supabase";
 import { getClients, getClientStats, Client } from "@/lib/clients";
 import { getProjectStats, getProjects, Project } from "@/lib/projects";
 import { getUserProfile, UserProfile } from "@/lib/user-profiles";
+import { debugLog, debugError } from "@/lib/debug";
 import {
   Users, Target, TrendingUp, Sparkles, BarChart3, Search, Plus, Menu, X, Edit, Trash2,
   AlertCircle, CheckCircle, LogOut, User, Briefcase, Receipt, FileText, Settings,
@@ -254,22 +255,22 @@ export default function DashboardPage() {
     }
   };
 
-  // Debug logging for form values (only in development)
-  if (process.env.NODE_ENV !== 'production') {
+  // Debug logging for form values - moved to useEffect to avoid prerender logs
+  useEffect(() => {
     const clientFormValues = clientForm.watch();
-    console.log("📋 Client form values:", clientFormValues);
-    console.log("📋 Client form errors:", clientForm.formState.errors);
-    console.log("📋 Client form isValid:", clientForm.formState.isValid);
+    debugLog("📋 Client form values:", clientFormValues);
+    debugLog("📋 Client form errors:", clientForm.formState.errors);
+    debugLog("📋 Client form isValid:", clientForm.formState.isValid);
 
     const projectFormValues = projectForm.watch();
-    console.log("📋 Project form values:", projectFormValues);
-  }
-  console.log("📋 Project form errors:", projectForm.formState.errors);
-  console.log("📋 Project form isValid:", projectForm.formState.isValid);
+    debugLog("📋 Project form values:", projectFormValues);
+    debugLog("📋 Project form errors:", projectForm.formState.errors);
+    debugLog("📋 Project form isValid:", projectForm.formState.isValid);
+  }, [clientForm, projectForm]);
 
   // Handle create client function with react-hook-form
   const handleCreateClient = useCallback(async (data: ClientFormData) => {
-    console.log("🚀 Submitting client form with data:", data);
+    debugLog("🚀 Submitting client form with data:", data);
 
     setIsSubmitting(true);
 
@@ -285,7 +286,7 @@ export default function DashboardPage() {
         notas: data.notas?.trim() && data.notas.trim().length > 0 ? data.notas.trim() : undefined
       };
 
-      console.log("📤 Sending client data to API:", clientData);
+      debugLog("📤 Sending client data to API:", clientData);
 
       await createClient(clientData);
 
@@ -294,9 +295,9 @@ export default function DashboardPage() {
       setIsModalOpen(false);
       await loadData(); // Reload data
 
-      console.log("✅ Client created successfully");
+      debugLog("✅ Client created successfully");
     } catch (error) {
-      console.error('❌ Error creating client:', error);
+      debugError('❌ Error creating client:', error);
       // You could set form errors here if needed
       clientForm.setError("root", {
         message: 'Error al crear el cliente. Verifica tu conexión e inténtalo de nuevo.'
@@ -308,7 +309,7 @@ export default function DashboardPage() {
 
   // Handle create project function with react-hook-form
   const handleCreateProject = useCallback(async (data: ProjectFormData) => {
-    console.log("🚀 Submitting project form with data:", data);
+    debugLog("🚀 Submitting project form with data:", data);
 
     setIsSubmitting(true);
 
@@ -327,9 +328,9 @@ export default function DashboardPage() {
       setIsProjectModalOpen(false);
       await loadData(); // Reload data
 
-      console.log("✅ Project created successfully");
+      debugLog("✅ Project created successfully");
     } catch (error) {
-      console.error('❌ Error creating project:', error);
+      debugError('❌ Error creating project:', error);
       // Set form error
       projectForm.setError("root", {
         message: 'Error al crear el proyecto. Verifica tu conexión e inténtalo de nuevo.'
