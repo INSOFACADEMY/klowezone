@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     const processedSettings = settings.map(setting => ({
       id: setting.id,
       key: setting.key,
-      value: setting.isSecret ? decrypt(setting.value) : setting.value,
+      value: setting.isSecret ? decrypt(JSON.parse(setting.value)) : setting.value,
       isSecret: setting.isSecret,
       category: setting.category,
       description: setting.description,
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
     const { key, value, isSecret = false, category, description } = validation.data
 
     // Encrypt value if it's marked as secret
-    const processedValue = isSecret ? encrypt(value) : value
+    const processedValue = isSecret ? JSON.stringify(encrypt(value)) : value
 
     // Create or update setting for the organization
     const setting = await prisma.systemConfig.upsert({
