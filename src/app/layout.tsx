@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { Suspense } from "react";
 import { Toaster } from "sonner"
 import { FloatingTimer } from "@/components/ui/floating-timer"
 import { CampaignTracker } from "@/components/auth/campaign-tracker"
@@ -26,7 +27,9 @@ export default function RootLayout({
         {children}
         <Toaster richColors position="top-right" />
         <FloatingTimer />
-        <CampaignTracker />
+        <Suspense fallback={null}>
+          <CampaignTracker />
+        </Suspense>
       </body>
     </html>
   );
