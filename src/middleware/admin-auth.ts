@@ -29,7 +29,7 @@ export async function requireAdminUser(request: NextRequest): Promise<AdminAuthR
     const user = await prisma.user.findUnique({
       where: { id: sessionData.userId },
       include: {
-        role: { include: { permissions: { select: { name: true } } } },
+        role: { select: { name: true } },
       },
     }) as UserWithRole | null;
 
@@ -65,7 +65,7 @@ export async function requireAdminUser(request: NextRequest): Promise<AdminAuthR
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
     include: {
-      role: { include: { permissions: { select: { name: true } } } },
+      role: { select: { name: true } },
       organizationMemberships: {
         select: { organizationId: true },
         take: 1,

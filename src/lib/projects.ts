@@ -6,7 +6,7 @@ export interface Project {
   user_id?: string
   nombre_proyecto: string
   descripcion?: string
-  estado: 'Planificación' | 'En Progreso' | 'Completado' | 'Pausado' | 'Cancelado'
+  estado: 'PLANIFICACION' | 'EN_PROGRESO' | 'COMPLETADO' | 'PAUSADO' | 'CANCELADO'
   prioridad: 'Baja' | 'Media' | 'Alta' | 'Urgente'
   fecha_entrega?: string
   presupuesto?: number
@@ -105,9 +105,9 @@ export async function getProjectStats(): Promise<{
 
     // Calcular estadísticas
     const total = projects?.length || 0
-    const completados = projects?.filter(p => p.estado === 'Completado').length || 0
+    const completados = projects?.filter(p => p.estado === 'COMPLETADO').length || 0
     const enProgreso = projects?.filter(p => p.estado === 'En Progreso').length || 0
-    const planificacion = projects?.filter(p => p.estado === 'Planificación').length || 0
+    const planificacion = projects?.filter(p => p.estado === 'PLANIFICACION').length || 0
 
     return {
       total,

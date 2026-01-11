@@ -157,8 +157,7 @@ export async function updateProjectStatus(projectId: string, newStatus: 'PLANIFI
     const project = await prisma.project.update({
       where: { id: projectId },
       data: {
-        estado: newStatus,
-        updated_at: new Date()
+        estado: newStatus
       },
       include: {
         cliente: {

@@ -109,14 +109,15 @@ export async function createApiKey(
 
   // Log the audit event
   if (userId) {
-    await logAuditEvent({
+    await logAuditEvent(
+      'API_KEY_CREATED',
+      'API_KEY',
+      apiKeyRecord.id,
+      {}, // oldValues
+      { name, keyPrefix },
       userId,
-      organizationId: orgId,
-      action: 'API_KEY_CREATED',
-      resourceType: 'API_KEY',
-      resourceId: apiKeyRecord.id,
-      details: { name, keyPrefix },
-    })
+      undefined // request
+    )
   }
 
   return {
@@ -158,18 +159,19 @@ export async function verifyApiKey(apiKeyPlain: string): Promise<VerifyApiKeyRes
       })
 
       // Log audit event asynchronously
-      logAuditEvent({
-        userId: null, // API key usage doesn't have a user
-        organizationId: apiKey.organizationId,
-        action: 'API_KEY_USED',
-        resourceType: 'API_KEY',
-        resourceId: apiKey.id,
-        details: {
+      logAuditEvent(
+        'API_KEY_USED',
+        'API_KEY',
+        apiKey.id,
+        {}, // oldValues
+        {
           keyPrefix: apiKey.keyPrefix,
           keyName: apiKey.name,
           usedAt: new Date().toISOString(),
         },
-      }).catch(error => {
+        undefined, // userId
+        undefined // request
+      ).catch(error => {
         console.error('Failed to log API key usage audit event:', error)
       })
 
@@ -215,14 +217,15 @@ export async function revokeApiKey(id: string, orgId: string, revokedByUserId?: 
 
   // Log the audit event
   if (revokedByUserId) {
-    await logAuditEvent({
-      userId: revokedByUserId,
-      organizationId: orgId,
-      action: 'API_KEY_REVOKED',
-      resourceType: 'API_KEY',
-      resourceId: id,
-      details: { name: apiKey.name, keyPrefix: apiKey.keyPrefix },
-    })
+    await logAuditEvent(
+      'API_KEY_REVOKED',
+      'API_KEY',
+      id,
+      {}, // oldValues
+      { name: apiKey.name, keyPrefix: apiKey.keyPrefix },
+      revokedByUserId,
+      undefined // request
+    )
   }
 }
 

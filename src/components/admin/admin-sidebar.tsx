@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useState } from 'next/navigation'
+import { useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { BarChart3, Settings, FileText, Users, Zap, TrendingUp, MessageSquare, Crown, ChevronDown, ChevronRight, FileBarChart } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'

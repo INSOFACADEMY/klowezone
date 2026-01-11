@@ -22,6 +22,10 @@ export async function syncUserToPrisma(supabaseUserId: string) {
 
     // Extraer datos del usuario
     const email = user.email
+    if (!email) {
+      throw new Error('User email is required for synchronization')
+    }
+
     const fullName = userMetadata.full_name || userMetadata.name || ''
     const nameParts = fullName.split(' ')
     const firstName = nameParts[0] || ''

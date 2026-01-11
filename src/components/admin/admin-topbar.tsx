@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Bell, Search, Command, User, LogOut } from 'lucide-react'
+import { Bell, Search, Command, User, LogOut, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -122,6 +122,7 @@ export function AdminTopbar() {
     </header>
   )
 }
+
 
 
 

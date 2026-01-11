@@ -126,7 +126,6 @@ export async function updateProjectDetails(projectId: string, updates: {
       where: { id: projectId },
       data: {
         ...updates,
-        updated_at: new Date()
       },
       include: {
         cliente: {

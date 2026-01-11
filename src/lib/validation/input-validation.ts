@@ -10,10 +10,7 @@ export const stringSchema = (fieldName: string, options?: {
   required?: boolean
   pattern?: RegExp
 }) => {
-  let schema = z.string({
-    required_error: `${fieldName} is required`,
-    invalid_type_error: `${fieldName} must be a string`
-  })
+  let schema = z.string().min(1, `${fieldName} is required`)
 
   if (options?.required !== false) {
     schema = schema.min(1, `${fieldName} cannot be empty`)
@@ -169,13 +166,10 @@ export const createAutomationSchema = z.object({
   name: stringSchema('name', { min: 1, max: 100 }),
   description: stringSchema('description', { max: 500 }).optional(),
   trigger: z.enum(['NEW_LEAD', 'PROJECT_STATUS_CHANGE', 'FEEDBACK_RECEIVED', 'CRITICAL_ERROR', 'USER_REGISTERED', 'PAYMENT_RECEIVED', 'DEADLINE_APPROACHING']),
-  triggerConfig: z.object({
-    type: z.enum(['webhook', 'schedule', 'manual']),
-    config: z.record(z.any())
-  }).optional(),
+  triggerConfig: z.any().optional(),
   actions: z.array(z.object({
     type: z.enum(AUTOMATION_ACTION_TYPES),
-    config: z.record(z.any()).optional(),
+    config: z.any().optional(),
     order: positiveIntegerSchema.optional(),
     delay: z.number().min(0).optional()
   })).min(1).max(20),
@@ -185,7 +179,7 @@ export const createAutomationSchema = z.object({
 export const webhookPayloadSchema = z.object({
   eventType: stringSchema('eventType', { min: 1, max: 100 }),
   idempotencyKey: stringSchema('idempotencyKey', { max: 255 }).optional(),
-  payload: z.record(z.any()),
+   payload: z.any(),
   source: stringSchema('source', { max: 100 }).optional()
 }).strict()
 

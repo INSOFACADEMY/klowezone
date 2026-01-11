@@ -263,8 +263,8 @@ export async function createStorageProvider(data: StorageProviderConfig) {
         name: data.name,
         provider: data.provider,
         config: encryptedConfig as any,
-        bucket: validatedConfig.bucket,
-        region: (validatedConfig as any).region,
+        bucket: 'bucket' in validatedConfig ? validatedConfig.bucket : '',
+        region: 'region' in validatedConfig ? validatedConfig.region : null,
         isActive: data.isActive,
         isDefault: data.isDefault,
       }
@@ -289,8 +289,9 @@ export async function updateStorageProvider(id: string, data: Partial<StoragePro
       data: {
         ...(data.name && { name: data.name }),
         ...(data.provider && { provider: data.provider }),
-        ...(data.config && { bucket: (data.config as any).bucket }),
-        ...(data.config && (data.config as any).region && { region: (data.config as any).region }),
+        ...(data.config && 'bucket' in data.config && { bucket: data.config.bucket }),
+        ...(data.config && !('bucket' in data.config) && { bucket: '' }),
+        ...(data.config && 'region' in data.config && { region: data.config.region }),
         ...(encryptedConfig && { config: encryptedConfig }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(data.isDefault !== undefined && { isDefault: data.isDefault }),
@@ -366,7 +367,7 @@ export async function getRoles() {
 export async function getPermissions() {
   try {
     return await prisma.permission.findMany({
-      orderBy: { category: 'asc' }
+      orderBy: { name: 'asc' }
     })
   } catch (error) {
     console.error('Error fetching permissions:', error)
@@ -474,21 +475,34 @@ export async function updateSecurityConfig(config: any) {
     ]
 
     const results = await Promise.all(
-      updates.map(update =>
-        prisma.systemConfig.upsert({
-          where: { key: update.key },
-          update: {
-            value: update.value,
-            isSecret: update.isSecret,
-            updatedAt: new Date()
-          },
-          create: {
+      updates.map(async (update) => {
+        const existing = await prisma.systemConfig.findFirst({
+          where: {
             key: update.key,
-            value: update.value,
-            isSecret: update.isSecret
+            organizationId: null
           }
         })
-      )
+
+        if (existing) {
+          return await prisma.systemConfig.update({
+            where: { id: existing.id },
+            data: {
+              value: update.value,
+              isSecret: update.isSecret,
+              updatedAt: new Date()
+            }
+          })
+        } else {
+          return await prisma.systemConfig.create({
+            data: {
+              key: update.key,
+              value: update.value,
+              category: 'system',
+              isSecret: update.isSecret
+            }
+          })
+        }
+      })
     )
 
     return results

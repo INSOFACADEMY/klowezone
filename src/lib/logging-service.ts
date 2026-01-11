@@ -133,9 +133,9 @@ export class LoggingService {
             userAgent: entry.userAgent,
             requestId: entry.requestId
           },
-          userId: entry.userId || null,
-          ipAddress: entry.ipAddress || null,
-          userAgent: entry.userAgent || null,
+          userId: entry.userId || '',
+          ipAddress: entry.ipAddress || undefined,
+          userAgent: entry.userAgent || undefined,
           timestamp: entry.timestamp || new Date()
         }
       })
@@ -207,14 +207,14 @@ export class LoggingService {
       id: log.id,
       timestamp: log.timestamp,
       level: log.action as LogEntry['level'],
-      message: log.newValues?.message || 'No message',
+      message: (log.newValues as any)?.message || 'No message',
       userId: log.userId || undefined,
       userEmail: log.user?.email || undefined,
       category: log.resource,
-      metadata: log.newValues?.metadata || {},
+      metadata: (log.newValues as any)?.metadata || {},
       ipAddress: log.ipAddress || undefined,
       userAgent: log.userAgent || undefined,
-      stackTrace: log.newValues?.stackTrace || undefined
+      stackTrace: (log.newValues as any)?.stackTrace || undefined
     }))
 
     return { logs: transformedLogs, total }
@@ -298,7 +298,7 @@ export class LoggingService {
   ): Promise<void> {
     try {
       // Get organization context (required for multi-tenant)
-      const orgContext = await getOrgContext(request)
+      const orgContext = await getOrgContext(request as any)
 
       await prisma.auditLog.create({
         data: {
@@ -332,7 +332,7 @@ export class LoggingService {
   }): Promise<any[]> {
     try {
       // Get organization context (required for multi-tenant)
-      const orgContext = await getOrgContext(options.request)
+      const orgContext = await getOrgContext(options.request as any)
 
       const where: any = {
         organizationId: orgContext.orgId

@@ -15,7 +15,6 @@ export async function updateProject(projectId: string, updates: {
       where: { id: projectId },
       data: {
         ...updates,
-        updated_at: new Date()
       },
       include: {
         cliente: {
@@ -74,7 +73,6 @@ export async function updateProjectStatus(projectId: string, newStatus: 'PLANIFI
       where: { id: projectId },
       data: {
         estado: newStatus,
-        updated_at: new Date()
       },
       include: {
         cliente: {
@@ -144,6 +142,7 @@ export async function getProjectActivities(clientId: string) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }
+
 
 
 

@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Validar y forzar cambio de org
-      const result = await setActiveOrg(userId, forceOrgId)
+      const result = await setActiveOrg(forceOrgId, request)
       if (!result.success) {
         return NextResponse.json(
           { error: result.error },

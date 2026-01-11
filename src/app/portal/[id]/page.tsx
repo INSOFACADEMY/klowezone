@@ -76,11 +76,11 @@ export default function ClientPortalPage() {
   const overallProgress = projects.length > 0
     ? projects.reduce((acc, project) => {
         const progressMap: Record<string, number> = {
-          'Planificación': 25,
-          'En Progreso': 65,
-          'Completado': 100,
-          'Pausado': 40,
-          'Cancelado': 0
+          'PLANIFICACION': 25,
+          'EN_PROGRESO': 65,
+          'COMPLETADO': 100,
+          'PAUSADO': 40,
+          'CANCELADO': 0
         };
         return acc + (progressMap[project.estado] || 0);
       }, 0) / projects.length
@@ -327,11 +327,11 @@ export default function ClientPortalPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {projects.map((project, index) => {
                     const progressMap: Record<string, number> = {
-                      'Planificación': 25,
-                      'En Progreso': 65,
-                      'Completado': 100,
-                      'Pausado': 40,
-                      'Cancelado': 0
+                      'PLANIFICACION': 25,
+                      'EN_PROGRESO': 65,
+                      'COMPLETADO': 100,
+                      'PAUSADO': 40,
+                      'CANCELADO': 0
                     };
                     const progress = progressMap[project.estado] || 0;
 
@@ -348,8 +348,8 @@ export default function ClientPortalPage() {
                           <Badge
                             variant="outline"
                             className={`text-xs ${
-                              project.estado === 'Completado' ? 'border-green-500 text-green-700' :
-                              project.estado === 'En Progreso' ? 'border-blue-500 text-blue-700' :
+                              project.estado === 'COMPLETADO' ? 'border-green-500 text-green-700' :
+                              project.estado === 'EN_PROGRESO' ? 'border-blue-500 text-blue-700' :
                               'border-gray-500 text-gray-700'
                             }`}
                           >

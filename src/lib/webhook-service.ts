@@ -157,20 +157,21 @@ export async function ingestWebhookEvent(
     const triggeredWorkflows = await triggerWorkflowsForEvent(orgId, payload.eventType)
 
     // Audit logging
-    await logAuditEvent({
-      userId: null, // Webhook events don't have user context
-      organizationId: orgId,
-      action: 'WEBHOOK_INGESTED',
-      resourceType: 'WEBHOOK_EVENT',
-      resourceId: eventLog.id,
-      details: {
+    await logAuditEvent(
+      'WEBHOOK_INGESTED',
+      'WEBHOOK_EVENT',
+      eventLog.id,
+      {}, // oldValues
+      {
         eventType: payload.eventType,
         source: payload.source,
         apiKeyPrefix,
         triggered: triggeredWorkflows.length,
         idempotencyKey: payload.idempotencyKey,
       },
-    })
+      undefined, // userId
+      undefined // request
+    )
 
     return {
       success: true,
@@ -201,7 +202,7 @@ async function triggerWorkflowsForEvent(orgId: string, eventType: string): Promi
       where: {
         organizationId: orgId,
         isActive: true,
-        trigger: eventType, // Exact match for MVP
+        trigger: eventType as any, // Exact match for MVP
       },
       select: {
         id: true,

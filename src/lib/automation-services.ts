@@ -374,7 +374,7 @@ export async function updateRunStatus(runId: string, status: string, error?: str
     }
 
     return await prisma.automationRun.update({
-      where: { runId },
+      where: { id: runId },
       data: updateData
     })
   } catch (error) {
@@ -639,32 +639,32 @@ export function getActionDescription(action: string): string {
 // TRIGGER HOOKS (to be called from relevant places)
 // ========================================
 
-export async function onNewLead(leadData: any) {
-  return await triggerAutomation('NEW_LEAD', leadData)
+export async function onNewLead(orgId: string, leadData: any) {
+  return await triggerAutomation(orgId, 'NEW_LEAD', leadData)
 }
 
-export async function onProjectStatusChange(projectData: any) {
-  return await triggerAutomation('PROJECT_STATUS_CHANGE', projectData)
+export async function onProjectStatusChange(orgId: string, projectData: any) {
+  return await triggerAutomation(orgId, 'PROJECT_STATUS_CHANGE', projectData)
 }
 
-export async function onFeedbackReceived(feedbackData: any) {
-  return await triggerAutomation('FEEDBACK_RECEIVED', feedbackData)
+export async function onFeedbackReceived(orgId: string, feedbackData: any) {
+  return await triggerAutomation(orgId, 'FEEDBACK_RECEIVED', feedbackData)
 }
 
-export async function onCriticalError(errorData: any) {
-  return await triggerAutomation('CRITICAL_ERROR', errorData)
+export async function onCriticalError(orgId: string, errorData: any) {
+  return await triggerAutomation(orgId, 'CRITICAL_ERROR', errorData)
 }
 
-export async function onUserRegistered(userData: any) {
-  return await triggerAutomation('USER_REGISTERED', userData)
+export async function onUserRegistered(orgId: string, userData: any) {
+  return await triggerAutomation(orgId, 'USER_REGISTERED', userData)
 }
 
-export async function onPaymentReceived(paymentData: any) {
-  return await triggerAutomation('PAYMENT_RECEIVED', paymentData)
+export async function onPaymentReceived(orgId: string, paymentData: any) {
+  return await triggerAutomation(orgId, 'PAYMENT_RECEIVED', paymentData)
 }
 
-export async function onDeadlineApproaching(deadlineData: any) {
-  return await triggerAutomation('DEADLINE_APPROACHING', deadlineData)
+export async function onDeadlineApproaching(orgId: string, deadlineData: any) {
+  return await triggerAutomation(orgId, 'DEADLINE_APPROACHING', deadlineData)
 }
 
 

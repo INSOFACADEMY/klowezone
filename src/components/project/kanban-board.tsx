@@ -49,7 +49,7 @@ const columns: KanbanColumn[] = [
   },
   {
     id: 'Done',
-    title: 'Completado',
+    title: 'COMPLETADO',
     color: 'border-green-300 bg-green-50',
     icon: CheckCircle2,
     tasks: []
@@ -283,6 +283,7 @@ export function KanbanBoard({ projectId, tasks, onTaskUpdate, onTaskClick }: Kan
     </div>
   )
 }
+
 
 
 

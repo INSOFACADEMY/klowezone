@@ -1,4 +1,5 @@
 import { prisma } from './prisma'
+import { ProjectStatus } from '@prisma/client'
 
 // ========================================
 // DASHBOARD SERVICE - Real Data Functions
@@ -56,22 +57,15 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     // Get project count
     const activeProjects = await prisma.project.count({
       where: {
-        status: {
-          in: ['ACTIVE', 'IN_PROGRESS', 'ON_HOLD']
+        estado: {
+          in: ['PLANIFICACION', 'EN_PROGRESO', 'PAUSADO']
         }
       }
     })
 
     // Get total revenue from invoices/payments
-    const totalRevenue = await prisma.financialTransaction.aggregate({
-      _sum: {
-        amount: true
-      },
-      where: {
-        type: 'INCOME',
-        status: 'COMPLETED'
-      }
-    })
+    // TODO: Implement when financial transaction model is added
+    const totalRevenue = { _sum: { amount: 0 } }
 
     // Get recent activity
     const recentActivity = await getRecentActivity()
@@ -114,7 +108,7 @@ export async function getRecentActivity(limit: number = 10): Promise<ActivityIte
     // Get recent audit logs
     const auditLogs = await prisma.auditLog.findMany({
       take: limit,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { timestamp: 'desc' },
       include: {
         user: {
           select: { firstName: true, lastName: true }
@@ -126,7 +120,7 @@ export async function getRecentActivity(limit: number = 10): Promise<ActivityIte
       id: log.id,
       type: mapActionToType(log.action),
       message: generateActivityMessage(log),
-      timestamp: log.createdAt,
+      timestamp: log.timestamp,
       user: log.user ? `${log.user.firstName} ${log.user.lastName}` : 'System'
     }))
   } catch (error) {
@@ -139,9 +133,9 @@ export async function getTopProjects(limit: number = 5): Promise<ProjectItem[]> 
   try {
     const projects = await prisma.project.findMany({
       take: limit,
-      orderBy: { updatedAt: 'desc' },
+      orderBy: { updated_at: 'desc' },
       include: {
-        client: {
+        cliente: {
           select: { firstName: true, lastName: true }
         }
       }
@@ -149,11 +143,11 @@ export async function getTopProjects(limit: number = 5): Promise<ProjectItem[]> 
 
     return projects.map(project => ({
       id: project.id,
-      name: project.name,
-      client: project.client ? `${project.client.firstName} ${project.client.lastName}` : 'Unknown',
-      status: project.status,
+      name: project.nombre_proyecto,
+      client: project.cliente ? `${project.cliente.firstName} ${project.cliente.lastName}` : 'Unknown',
+      status: project.estado,
       progress: calculateProjectProgress(project),
-      dueDate: project.endDate || new Date()
+      dueDate: project.fecha_entrega || new Date()
     }))
   } catch (error) {
     console.error('Error fetching top projects:', error)
@@ -179,7 +173,7 @@ export async function calculateSystemHealth(): Promise<number> {
 
       // Active projects
       prisma.project.count({
-        where: { status: 'ACTIVE' }
+        where: { estado: 'EN_PROGRESO' }
       }).then(count => count > 0).catch(() => false)
     ])
 
@@ -293,13 +287,13 @@ export async function getProjects(page: number = 1, limit: number = 10) {
       prisma.project.findMany({
         skip,
         take: limit,
-        orderBy: { updatedAt: 'desc' },
+        orderBy: { updated_at: 'desc' },
         include: {
-          client: {
+          cliente: {
             select: { firstName: true, lastName: true }
           },
-          tasks: {
-            select: { status: true }
+          activities: {
+            select: { tipo: true }
           }
         }
       }),
@@ -318,11 +312,11 @@ export async function getProjects(page: number = 1, limit: number = 10) {
   }
 }
 
-export async function updateProjectStatus(projectId: string, status: string) {
+export async function updateProjectStatus(projectId: string, status: ProjectStatus) {
   try {
     return await prisma.project.update({
       where: { id: projectId },
-      data: { status }
+      data: { estado: status }
     })
   } catch (error) {
     console.error('Error updating project status:', error)
@@ -382,19 +376,33 @@ export async function updateSystemConfig(key: string, value: string, isSecret: b
   try {
     const encryptedValue = isSecret ? encryptValue(value) : value
 
-    return await prisma.systemConfig.upsert({
-      where: { key },
-      update: {
-        value: encryptedValue,
-        isSecret,
-        updatedAt: new Date()
-      },
-      create: {
+    // Check if config already exists
+    const existing = await prisma.systemConfig.findFirst({
+      where: {
         key,
-        value: encryptedValue,
-        isSecret
+        organizationId: null
       }
     })
+
+    if (existing) {
+      return await prisma.systemConfig.update({
+        where: { id: existing.id },
+        data: {
+          value: encryptedValue,
+          isSecret,
+          updatedAt: new Date()
+        }
+      })
+    } else {
+      return await prisma.systemConfig.create({
+        data: {
+          key,
+          value: encryptedValue,
+          category: 'system',
+          isSecret
+        }
+      })
+    }
   } catch (error) {
     console.error('Error updating system config:', error)
     throw error

@@ -179,13 +179,13 @@ export default function ClientDeepViewPage() {
       setProjects(projectsData);
 
       // Load activities from database
-      if (activitiesData.success) {
+      if (activitiesData.success && activitiesData.data) {
         setActivities(activitiesData.data.map(activity => ({
           id: activity.id,
           type: activity.tipo.toLowerCase() as ClientActivity['type'],
           title: activity.titulo,
           description: activity.descripcion,
-          timestamp: activity.created_at,
+          timestamp: activity.created_at.toISOString(),
           icon: getActivityIcon(activity.tipo)
         })));
       }

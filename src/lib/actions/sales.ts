@@ -52,7 +52,6 @@ export async function closeSale(projectId: string, saleAmount?: number) {
       where: { id: projectId },
       data: {
         estado: 'COMPLETADO',
-        updated_at: new Date()
       }
     })
 
@@ -115,7 +114,7 @@ export async function closeSale(projectId: string, saleAmount?: number) {
 
     // Notificar al CGO Pulse sobre la venta cerrada
     try {
-      await onSaleClosed(projectId, finalSaleAmount, project.cliente?.metaCampaignId)
+      await onSaleClosed(projectId, finalSaleAmount, project.cliente?.metaCampaignId ?? undefined)
     } catch (pulseError) {
       console.error('Error en CGO Pulse notification:', pulseError)
       // No fallar la venta por error en notificaciones

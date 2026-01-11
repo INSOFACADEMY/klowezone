@@ -78,7 +78,7 @@ export function hasAnyOrgRole(ctx: OrgContext, requiredRoles: OrgRole[]): boolea
  */
 export function hasOrgPermission(ctx: OrgContext, permission: OrgPermission): boolean {
   const allowedRoles = ORG_PERMISSIONS[permission]
-  return allowedRoles.includes(ctx.orgRole)
+  return (allowedRoles as unknown as OrgRole[]).includes(ctx.orgRole)
 }
 
 /**
@@ -109,7 +109,7 @@ export function hasOrgRoleLevel(ctx: OrgContext, minimumRole: OrgRole): boolean 
  */
 export function getOrgRolePermissions(role: OrgRole): OrgPermission[] {
   return Object.entries(ORG_PERMISSIONS)
-    .filter(([, allowedRoles]) => allowedRoles.includes(role))
+    .filter(([, allowedRoles]) => (allowedRoles as unknown as OrgRole[]).includes(role))
     .map(([permission]) => permission as OrgPermission)
 }
 
@@ -157,7 +157,7 @@ export function validateOrgPermission(
   }
 
   if (!hasOrgPermission(ctx, permission)) {
-    const allowedRoles = ORG_PERMISSIONS[permission]
+    const allowedRoles = ORG_PERMISSIONS[permission] as unknown as OrgRole[]
     return {
       success: false,
       error: `Permission denied: ${permission}. Allowed roles: ${allowedRoles.join(', ')}. Your role: ${ctx.orgRole}`,

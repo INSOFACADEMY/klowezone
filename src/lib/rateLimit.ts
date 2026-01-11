@@ -40,7 +40,6 @@ function getRedisClient(): ReturnType<typeof createClient> {
       url: redisUrl,
       socket: {
         connectTimeout: 5000,
-        lazyConnect: true,
       },
     })
 

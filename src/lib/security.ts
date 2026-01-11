@@ -19,7 +19,7 @@ function getHeaderValue(
     const normalizedKey = key.toLowerCase()
     // Find the key case-insensitively
     const foundKey = Object.keys(headers).find(k => k.toLowerCase() === normalizedKey)
-    return foundKey ? headers[foundKey] : undefined
+    return foundKey ? (headers as any)[foundKey] : undefined
   }
 
   return undefined
