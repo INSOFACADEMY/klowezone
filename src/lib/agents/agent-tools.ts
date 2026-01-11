@@ -6,10 +6,10 @@ import {
   WHATSAPP_TEMPLATES,
   generateWhatsAppLink
 } from '../whatsapp-utils'
-import { config } from 'dotenv'
+import { loadEnv } from '../../../prisma/loadEnv'
 
-// Cargar variables de entorno
-config({ path: '.env.local' })
+// Load environment variables silently (enterprise loader)
+loadEnv()
 
 // ========================================
 // AGENT TOOLS SERVICE
